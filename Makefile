@@ -7,5 +7,7 @@ KBUILD_CFLAGS += -w
  
 all:
 	make -C $(LINUX_KERNEL_PATH) M=$(CURRENT_PATH) modules
+	gcc -g cmdtool.c -o cmdtool
 clean:
 	make -C $(LINUX_KERNEL_PATH) M=$(CURRENT_PATH) clean
+	rm -f cmdtool *.o

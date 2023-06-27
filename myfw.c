@@ -1,15 +1,18 @@
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/skbuff.h>//包含sk_buff结构
-#include <net/tcp.h>
-#include <linux/netdevice.h>
-#include <linux/netfilter.h>
-#include <linux/netfilter_ipv4.h>
- 
-#include "myfw.h"
-//内核层的代码
- 
-//使用静态变量更适合与模块化编程，使用static进行定义的结构或变量只能在本文件中使用
+#include<linux/module.h>
+#include<linux/kernel.h>
+#include<linux/skbuff.h>//包含sk_buff结构
+#include<linux/tcp.h>
+#include<linux/netdevice.h>
+#include<linux/netfilter.h>
+#include<linux/netfilter_ipv4.h>
+#include<linux/ip.h>
+#include<linux/udp.h>
+
+#include"header.h"
+
+//unimportant function declaration
+void debugInfo(char* msg);
+
 //定义detfilter的5个钩子点：
 static struct nf_hook_ops nfhoLocalIn;
 static struct nf_hook_ops nfhoLocalOut;
@@ -18,146 +21,61 @@ static struct nf_hook_ops nfhoForward;
 static struct nf_hook_ops nfhoPostRouting;
 //创建套接字选项，与用户层通信
 static struct nf_sockopt_ops nfhoSockopt;
- 
+
+//global variable
 static int debug_level = 0;
 static int nfcount = 0;
- 
-static Rule* g_rules;//规则集,用指针形式来记录可以更省空间
-static int g_rules_count = 0;//用来记录规则的个数
- 
-//------函数声明------
-void addRule(Rule* rule);//增加规则的函数
-void delRule(int rule_num);//删除规则，输入的参数表示要删除的规则的编号
-int matchRule(void* skb);//进行规则比较的函数，判断是否能进行通信
-void debugInfo(char* msg);//记录操作次数，将每次的操作信息输出到日志
-//sk_buff就是传入的数据包，*skb
-unsigned int hookLocalIn(void* priv, struct sk_buff* skb, const struct nf_hook_state* state);
-unsigned int hookLocalOut(void* priv, struct sk_buff* skb, const struct nf_hook_state* state);
-unsigned int hookPreRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state);
-unsigned int hookPostRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state);
-unsigned int hookForward(void* priv, struct sk_buff* skb, const struct nf_hook_state* state);
-//用于接收用户端数据的函数
-int hookSockoptSet(struct sock* sock, int cmd, void __user* user, unsigned int len);
-//用与将数据传到用户层的函数
-int hookSockoptGet(struct sock* sock, int cmd, void __user* user, int* len);
-int init_module();//内核模块初始化,初始化五个钩子（进行钩子的注册）
-void cleanup_module();//将钩子注销
- 
-//------函数实现------
-void addRule(Rule* rule)//增加规则的函数
-{
-	//这一个函数是先将要添加的规则放入新的规则集中，再把原来的规则集放到新的规则集中
-	//所以每次添加规则时，添加的规则都会放到第一位
-	int r_c = g_rules_count + 1;//将规则个数+1
-	Rule* g_r = (Rule*)vmalloc(r_c * sizeof(Rule));//开辟相应大小的空间
-	memcpy(g_r, rule, sizeof(Rule));//将要增加的规则放到新开辟的规则集中
- 
-	if (g_rules_count > 0){//如果原规则集中有规则，则先将原来的规则集赋值给新规则集
-		memcpy(g_r + 1, g_rules, g_rules_count * sizeof(Rule));
-		vfree(g_rules);//回收之前的rule，释放空间
-	}
- 
-	g_rules = g_r;//将新的规则集赋值给全局规则集
-	g_rules_count = r_c;//更新规则集中规则的数量
-}
- 
-void delRule(int rule_num)//删除规则，输入的参数表示要删除的规则的编号
-{
-	int i;
-	if (rule_num > 0 && rule_num <= g_rules_count){//如果输入的规则编号有效，则进行删除
-		for (i = rule_num; i < g_rules_count; i++){
-			//把要删除的规则的位置之后的规则都往前移一个位置，将要删除的规则覆盖掉
-			memcpy(g_rules + i - 1, g_rules + i, sizeof(Rule));
-		}
-		g_rules_count--;//最后一个空间闲着，不用管
-	}
-}
- 
-int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通信
-{
-	//增加了端口控制的规则匹配
-	int sport = 0;
-	int dport = 0;
-	struct iphdr* iph = ip_hdr(skb);
-	struct tcphdr* tcph;
-	struct udphdr* udph;
-	int act = 1, i;
-	Rule* r;
-	for (i = 0; i < g_rules_count; i++){//遍历规则集
-		r = g_rules + i;//用r来遍历
-		if ((!r->sip || r->sip == iph->saddr) &&
-			(!r->dip || r->dip == iph->daddr) &&
-			(!r->protocol || r->protocol == iph->protocol)){
-			switch (iph->protocol){//对协议类型进行判断进行判断
-			case MYFW_TCP:
-				tcph = (struct tcphdr*)skb_transport_header(skb);
-				sport = tcph->source;
-				dport = tcph->dest;
-				break;
-			case MYFW_UDP:
-				udph = (struct udphdr*)skb_transport_header(skb);
-				sport = udph->source;
-				dport = udph->dest;
-				break;
-			}
-			if ((!r->sport || !sport || r->sport == sport) &&
-				(!r->dport || !dport || r->dport == dport)){
-				act = r->allow;
-			}
-		}
-	}
-	return act;
-}
- 
-void debugInfo(char* msg)//记录操作次数，将每次的操作信息输出到日志
-{
-	if (debug_level){//如果等级符合要求，才进行+1和输出到日志
-		nfcount++;
-		printk("%s, nfcount: %d\n", msg, nfcount);
-	}
-}
- 
-unsigned int hookLocalIn(void* priv,
-	struct sk_buff* skb,//sk_buff就是传入的数据包，*skb
-	const struct nf_hook_state* state)
+
+//Rules
+static Rule* g_rules;	//group of rules
+static int g_rules_current_count = 0;	// quantity of rules that exist
+static int g_rules_total_count = 0;	//quantity of rules that have been created
+
+//state variable
+static int del_succeed = 0;
+static int add_succeed = 0;
+static int alt_succeed = 0;
+
+//Key function declaration
+void addRule(Rule* rule);
+void delRule(int rule_id);
+int checkExistance(Rule* rule);
+int matchRule(void* skb);
+void altRule(Rule_with_tag* tag_rule);
+
+/*
+**requires inspection**
+*/
+unsigned int hookLocalIn(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)//sk_buff就是传入的数据包，*skb
 {
 	unsigned rc = NF_ACCEPT;//默认继续传递，保持和原来输出的一致
  
-	if (matchRule(skb) <= 0)//查规则集，如果返回值<=0，那么不允许进行通信
+	if (matchRule(skb))//查规则集，如果返回值<=0，那么不允许进行通信
 		rc = NF_DROP;//丢弃包，不再继续传递
  
-	debugInfo("hookLocalIn");
  
 	return rc;//返回是是否允许通信，是否丢包
 }
  
-unsigned int hookLocalOut(void* priv,
-	struct sk_buff* skb,
-	const struct nf_hook_state* state)
+unsigned int hookLocalOut(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
 	debugInfo("hookLocalOut");
 	return NF_ACCEPT;//接收该数据
 }
  
-unsigned int hookPreRouting(void* priv,
-	struct sk_buff* skb,
-	const struct nf_hook_state* state)
+unsigned int hookPreRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
 	debugInfo("hookPreRouting");
 	return NF_ACCEPT;//接收该数据
 }
  
-unsigned int hookPostRouting(void* priv,
-	struct sk_buff* skb,
-	const struct nf_hook_state* state)
+unsigned int hookPostRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
 	debugInfo("hookPostRouting");
 	return NF_ACCEPT;//接收该数据
 }
  
-unsigned int hookForward(void* priv,
-	struct sk_buff* skb,
-	const struct nf_hook_state* state)
+unsigned int hookForward(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
 	debugInfo("hookForwarding");
 	return NF_ACCEPT;//接收该数据
@@ -168,29 +86,37 @@ int hookSockoptSet(struct sock* sock,
 	void __user* user,
 	unsigned int len)//用于接收用户端数据的函数
 {
-	int ret = 0;
-	Rule r;
-	int r_num;
- 
-	debugInfo("hookSockoptSet");
- 
-	switch (cmd){
-	case CMD_DEBUG:
-		//copy_from_user函数的作用：用于将用户空间的数据拷贝到内核空间
-		ret = copy_from_user(&debug_level, user, sizeof(debug_level));
-		printk("set debug level to %d", debug_level);//设置debug等级
-		break;
-	case CMD_RULE:
-		ret = copy_from_user(&r, user, sizeof(Rule));//如果是添加规则
-		addRule(&r);
-		printk("add rule");//输出到日志
-		break;
-	case CMD_RULE_DEL:
-		ret = copy_from_user(&r_num, user, sizeof(r_num));//删除规则
-		delRule(r_num);
-		printk("del rule");//输出到日志
-		break;
+	int ret;
+
+	switch(cmd){
+		case CMD_SET_DEBUG_STATE:
+			ret = copy_from_user(&debug_level, user, sizeof(debug_level));
+			break;
+
+		case CMD_ADD_RULE:
+			Rule* val=vmalloc(sizeof(Rule));
+			ret = copy_from_user(val, user, sizeof(Rule));
+			addRule(val);
+			break;
+		
+		case CMD_DEL_RULE:
+			int rule_id;
+			ret = copy_from_user(&rule_id, user, sizeof(int));
+			delRule(rule_id);
+			break;
+
+		case CMD_ALT_RULE:
+			Rule_with_tag* tag_rule = vmalloc(sizeof(Rule_with_tag));
+			ret = copy_from_user(tag_rule, user, sizeof(Rule_with_tag));
+			printk("Debug: point 1.\n");
+			altRule(tag_rule);
+			break;
+			
+
+		default:
+			break;
 	}
+
 	if (ret != 0)//说明赋值失败，进行输出
 	{
 		printk("copy_from_user error");
@@ -205,30 +131,121 @@ int hookSockoptGet(struct sock* sock,
 	void __user* user,
 	int* len)//用与将数据传到用户层的函数
 {
-	int ret;
- 
-	debugInfo("hookSockoptGet");
- 
+    int ret;
+
 	switch (cmd){
-	case CMD_DEBUG:
-		ret = copy_to_user(user, &debug_level, sizeof(debug_level));
-		break;
-	case CMD_RULE:
-		//copy_to_user函数的作用：将内核空间的数据拷贝到用户空间
-		//拷贝成功返回0
-		ret = copy_to_user(user, &g_rules_count, sizeof(g_rules_count));
-		ret = copy_to_user(user + sizeof(g_rules_count), g_rules, sizeof(Rule) * g_rules_count);
-		break;
-	}
- 
-	if (ret != 0){
+		case CMD_GET_DEBUG_STATE:
+			ret = copy_to_user(user, &debug_level, sizeof(debug_level));
+			break;
+
+		case CMD_GET_RULES:
+			ret = copy_to_user(user, &g_rules_current_count, sizeof(g_rules_current_count));
+			ret = copy_to_user(user + sizeof(g_rules_current_count), g_rules, sizeof(Rule) * g_rules_current_count);
+			break;
+
+		case CMD_DEL_RULE:
+			ret = copy_to_user(user, &del_succeed, sizeof(del_succeed));
+			break;
+
+		case CMD_ADD_RULE:
+			ret = copy_to_user(user, &add_succeed, sizeof(add_succeed));
+			break;
+
+		case CMD_ALT_RULE:
+			ret = copy_to_user(user, &alt_succeed, sizeof(alt_succeed));
+			break;
+		
+		default:
+			break;
+    }
+
+    if (ret != 0){
 		ret = -EINVAL;
 		debugInfo("copy_to_user error");
 	}
- 
-	return ret;
+
+    return ret;
 }
  
+// key funtions definations
+void addRule(Rule* rule){
+	// check existance
+	if(!checkExistance(rule)){
+		int n_g_rules_current_count = g_rules_current_count + 1;
+		int n_g_rules_total_count = g_rules_total_count + 1;
+		rule->id = n_g_rules_total_count;
+		Rule* g_r = (Rule*)vmalloc(n_g_rules_current_count * sizeof(Rule));
+
+		if(g_rules_current_count > 0){
+			memcpy(g_r, g_rules, g_rules_current_count * sizeof(Rule));
+			vfree(g_rules);
+		}
+		memcpy(g_r + g_rules_current_count, rule, sizeof(Rule));
+
+		g_rules = g_r;
+		g_rules_current_count = n_g_rules_current_count;
+		g_rules_total_count = n_g_rules_total_count;
+
+		add_succeed = 1;
+	}else{
+		add_succeed = 0;
+	}
+	
+	
+}
+
+void delRule(int rule_id){
+	Rule* ptr = g_rules;	// find the head
+	int found=-1;
+	for(int i=0;i<g_rules_current_count;++i){
+		if((ptr+i)->id == rule_id){	//find the target rule
+			found = i;
+			break;
+		}
+	}
+
+	if(found != -1){// if found
+		for(int i = found+1; i<g_rules_current_count;++i){
+			memcpy(g_rules + i - 1, g_rules + i, sizeof(Rule));
+		}
+		g_rules_current_count--;
+		
+		del_succeed = 1;
+	}else{
+		del_succeed = 0;
+	}
+	
+	
+}
+
+void altRule(Rule_with_tag* tag_rule){
+	Rule* ptr = g_rules;
+	Rule* target = NULL;
+	int found = 0;
+	for(int i=0; i<g_rules_current_count;++i){
+		if((ptr+i)->id == tag_rule->id){
+			found = 1;
+			target = ptr + i;
+			break;
+		}
+	}
+	if(found){
+		if(tag_rule->mark_bit.protocol == 1) target->protocol = tag_rule->rule.protocol;
+		if(tag_rule->mark_bit.sip == 1) target->sip = tag_rule->rule.sip;
+		if(tag_rule->mark_bit.dip == 1) target->dip = tag_rule->rule.dip;
+		if(tag_rule->mark_bit.sport == 1) target->sport = tag_rule->rule.sport;
+		if(tag_rule->mark_bit.dport == 1) target->dport = tag_rule->rule.dport;
+
+		alt_succeed = 1;
+	}else{
+		alt_succeed = 0;
+	}
+}
+
+
+// end key function definations
+
+
 int init_module()//内核模块初始化,初始化五个钩子（进行钩子的注册）
 {
 	nfhoLocalIn.hook = hookLocalIn;//设置一些参数
@@ -289,3 +306,60 @@ void cleanup_module()//将钩子注销
 }
  
 MODULE_LICENSE("GPL");//模块的许可证声明，防止收到内核被污染的警告
+
+void debugInfo(char* msg)//记录操作次数，将每次的操作信息输出到日志
+{
+	if (debug_level){//如果等级符合要求，才进行+1和输出到日志
+		nfcount++;
+		printk("%s, nfcount: %d\n", msg, nfcount);
+	}
+}
+
+int checkExistance(Rule* rule){
+	Rule* ptr = NULL;
+	for(int i = 0; i < g_rules_current_count; ++i){
+		ptr = (Rule*)g_rules + i;
+		if(ptr->sip == rule->sip && ptr->sport == rule->sport 
+			&& ptr->dip == rule->dip && ptr->dport == rule->dport
+				&& ptr->protocol == rule->protocol){
+					return 1;
+				}
+	}
+	return 0;
+}
+
+int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通信
+{
+	//增加了端口控制的规则匹配
+	int sport = 0;
+	int dport = 0;
+	struct iphdr* iph = ip_hdr(skb);
+	struct tcphdr* tcph;
+	struct udphdr* udph;
+	int act = 1, i;
+	Rule* r;
+	for (i = 0; i < g_rules_current_count; i++){//遍历规则集
+		r = g_rules + i;//用r来遍历
+		if ((!r->sip || r->sip == iph->saddr) &&
+			(!r->dip || r->dip == iph->daddr) &&
+			(!r->protocol || r->protocol == iph->protocol)){
+			switch (iph->protocol){//对协议类型进行判断进行判断
+			case MYFW_TCP:
+				tcph = (struct tcphdr*)(skb_transport_header(skb));
+				sport = tcph->source;
+				dport = tcph->dest;
+				break;
+			case MYFW_UDP:
+				udph = (struct udphdr*)(skb_transport_header(skb));
+				sport = udph->source;
+				dport = udph->dest;
+				break;
+			}
+			if ((!r->sport || !sport || r->sport == sport) &&
+				(!r->dport || !dport || r->dport == dport)){
+				return MATCH;
+			}
+		}
+	}
+	return NMATCH;
+}
