@@ -23,7 +23,7 @@ sudo ./cmdtool rule add [args]
 
 `-p`：ICMP、UDP、TCP；
 
-`-x sid -y sport -m dip -n dport`
+`-x sip -y sport -m dip -n dport`
 
 ### 展示所有规则
 
