@@ -35,6 +35,7 @@ static int g_rules_total_count = 0;	//quantity of rules that have been created
 static int del_succeed = 0;
 static int add_succeed = 0;
 static int alt_succeed = 0;
+static int change_rule_stat = 0;
 
 //Key function declaration
 void addRule(Rule* rule);
@@ -42,6 +43,8 @@ void delRule(int rule_id);
 int checkExistance(Rule* rule);
 int matchRule(void* skb);
 void altRule(Rule_with_tag* tag_rule);
+void changeRuleStat(int rule_id, int blocked);
+Rule* searchRuleById(int id);
 
 /*
 **requires inspection**
@@ -111,6 +114,12 @@ int hookSockoptSet(struct sock* sock,
 			printk("Debug: point 1.\n");
 			altRule(tag_rule);
 			break;
+
+		case CMD_RULE_STATE:
+			RuleStat* rule_stat=vmalloc(sizeof(RuleStat));
+			ret = copy_from_user(rule_stat, user, sizeof(RuleStat));
+			changeRuleStat(rule_stat->rule_id, rule_stat->blocked);
+			break;
 			
 
 		default:
@@ -153,6 +162,10 @@ int hookSockoptGet(struct sock* sock,
 
 		case CMD_ALT_RULE:
 			ret = copy_to_user(user, &alt_succeed, sizeof(alt_succeed));
+			break;
+
+		case CMD_RULE_STATE: 
+			ret = copy_to_user(user, &change_rule_stat, sizeof(change_rule_stat));
 			break;
 		
 		default:
@@ -219,26 +232,28 @@ void delRule(int rule_id){
 }
 
 void altRule(Rule_with_tag* tag_rule){
-	Rule* ptr = g_rules;
-	Rule* target = NULL;
-	int found = 0;
-	for(int i=0; i<g_rules_current_count;++i){
-		if((ptr+i)->id == tag_rule->id){
-			found = 1;
-			target = ptr + i;
-			break;
-		}
-	}
-	if(found){
+	Rule* target = searchRuleById(tag_rule->id);
+	if(target != NULL){
 		if(tag_rule->mark_bit.protocol == 1) target->protocol = tag_rule->rule.protocol;
 		if(tag_rule->mark_bit.sip == 1) target->sip = tag_rule->rule.sip;
 		if(tag_rule->mark_bit.dip == 1) target->dip = tag_rule->rule.dip;
 		if(tag_rule->mark_bit.sport == 1) target->sport = tag_rule->rule.sport;
 		if(tag_rule->mark_bit.dport == 1) target->dport = tag_rule->rule.dport;
-
 		alt_succeed = 1;
 	}else{
 		alt_succeed = 0;
+	}
+}
+
+void changeRuleStat(int rule_id, int blocked){
+	Rule* target = searchRuleById(rule_id);
+	if(target != NULL){
+		target->block = blocked;
+
+		change_rule_stat = 1;
+	}
+	else{
+		change_rule_stat = 0;
 	}
 }
 
@@ -328,6 +343,18 @@ int checkExistance(Rule* rule){
 	return 0;
 }
 
+Rule* searchRuleById(int id){
+	Rule* ptr = g_rules;
+	Rule* target = NULL;
+	for(int i=0; i<g_rules_current_count;++i){
+		if((ptr+i)->id == id){
+			target = ptr + i;
+			break;
+		}
+	}
+	return target;
+}
+
 int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通信
 {
 	//增加了端口控制的规则匹配
@@ -340,6 +367,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 	Rule* r;
 	for (i = 0; i < g_rules_current_count; i++){//遍历规则集
 		r = g_rules + i;//用r来遍历
+		if(r->block) continue; //if blocked, then ignore
 		if ((!r->sip || r->sip == iph->saddr) &&
 			(!r->dip || r->dip == iph->daddr) &&
 			(!r->protocol || r->protocol == iph->protocol)){

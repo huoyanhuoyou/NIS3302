@@ -17,8 +17,9 @@ void paramsError();//use when params error
 //key function
 void showRules(int sockfd);
 void addRule(int sockfd, int argc, char* argv[]);
-void delRule(int sockfd, int rule_id);
+void delRule(int sockfd, int argc, char* argv[]);
 void altRule(int sockfd, int argc, char* argv[]);
+void setRuleStat(int sockfd, int rule_id, int active);
 
 void showDebugState(int sockfd);
 void setDebugState(int sockfd, int state);
@@ -39,6 +40,7 @@ Command tool for Tiny Firewall. Should support:
     ./cmdtool rule add
     ./cmdtool rule del
     ./cmdtool rule alt
+    ./cmdtool rule block 
     ./cmdtool debug show
     ./cmdtool debug set [value]
 */
@@ -68,11 +70,15 @@ int main(int argc, char* argv[]){
             break;
         };
         if(!strncmp(argv[2], "del", 3)){
-            delRule(sockfd, atoi(argv[3]));
+            delRule(sockfd, argc, argv);
             break;
         };
         if(!strncmp(argv[2], "alt", 3)){
             altRule(sockfd, argc, argv);
+            break;
+        }
+        if(!strncmp(argv[2], "set", 3)){
+            setRuleStat(sockfd, atoi(argv[3]), atoi(argv[4]));
             break;
         }
         paramsError();
@@ -113,16 +119,17 @@ void showRules(int sockfd){
     printf("Existing number of rules: %d.\n", tbl->count);
     
     char sip[32], dip[32], sport[32], dport[32], protocol[16];
-    int id;
+    int id, blocked;
     for(int i = 0; i<tbl->count; ++i){
         id = r->id;
+        blocked = r->block;
         ip2Str(r->sip, sip);
         ip2Str(r->dip, dip);
         port2Str(r->sport, sport);
         port2Str(r->dport, dport);
         protocol2Str(r->protocol, protocol);
 
-        printf("Rule %d: \t%s:%s -> %s:%s, %s\n", id, sip, sport, dip, dport, protocol);
+        printf("Rule %d: \t%s:%s -> %s:%s, %s\t%s\n", id, sip, sport, dip, dport, protocol, (blocked) ? "blocked": "active");
         r = r + 1;
     }
 
@@ -131,6 +138,7 @@ void showRules(int sockfd){
 void addRule(int sockfd, int argc, char* argv[]){
     Rule* new_rule = malloc(sizeof(Rule));
     new_rule->id = 0;
+    new_rule->block = 0;
 
     char *sip;
     char *dip; 
@@ -146,7 +154,7 @@ void addRule(int sockfd, int argc, char* argv[]){
 
     // read params
     char optret;
-    while((optret = getopt(argc, argv, "p:x:y:m:n:")) != -1){
+    while((optret = getopt(argc, argv, "p:x:y:m:n:b:")) != -1){
         switch(optret){
             case 'p':
                 protocol = optarg;
@@ -166,6 +174,10 @@ void addRule(int sockfd, int argc, char* argv[]){
 
             case 'n':
                 dport = optarg;
+                break;
+
+            case 'b':
+                new_rule->block = atoi(optarg);
                 break;
         }
     }
@@ -192,17 +204,21 @@ void addRule(int sockfd, int argc, char* argv[]){
     }
 }
 
-void delRule(int sockfd, int rule_id){
-    setsockopt(sockfd, IPPROTO_IP, CMD_DEL_RULE, &rule_id, sizeof(int));
-    int res;
-    int val_len = sizeof(int);
-    getsockopt(sockfd, IPPROTO_IP, CMD_DEL_RULE, &res, &val_len);
-    if(res){
-        printf("Delete rule %d successfully!\n", rule_id);
+void delRule(int sockfd, int argc, char* argv[]){
+    for(int i = 3; i < argc; ++i){
+        int rule_id = atoi(argv[i]);
+        setsockopt(sockfd, IPPROTO_IP, CMD_DEL_RULE, &rule_id, sizeof(int));
+        int res;
+        int val_len = sizeof(int);
+        getsockopt(sockfd, IPPROTO_IP, CMD_DEL_RULE, &res, &val_len);
+        if(res){
+            printf("Delete rule %d successfully!\n", rule_id);
+        }
+        else{
+            printf("Rule %d not found!\n", rule_id);
+        }
     }
-    else{
-        printf("Rule %d not found!\n", rule_id);
-    }
+
 }
 
 void altRule(int sockfd, int argc, char* argv[]){
@@ -267,6 +283,27 @@ void altRule(int sockfd, int argc, char* argv[]){
     
 }
 
+void setRuleStat(int sockfd, int rule_id, int active){
+    RuleStat* rule_stat = malloc(sizeof(RuleStat));
+    rule_stat->rule_id = rule_id;
+    if(!active){
+        rule_stat->blocked = 1;
+    }else{
+        rule_stat->blocked = 0;
+    }
+    setsockopt(sockfd, IPPROTO_IP, CMD_RULE_STATE, rule_stat, sizeof(RuleStat));
+    free(rule_stat);
+
+    int var_len = sizeof(int);
+    int* res=malloc(var_len);
+    getsockopt(sockfd, IPPROTO_IP, CMD_RULE_STATE, res, &var_len);
+    if(*res){
+        printf("Changed rule %d to %s.\n", rule_id, (active) ? "active": "blocked");
+    }else{
+        printf("Change rule %d failed!\n", rule_id);
+    }
+}
+
 void showDebugState(int sockfd){
     int val_len = sizeof(int);
     int *val = malloc(val_len);
@@ -277,6 +314,7 @@ void showDebugState(int sockfd){
 void setDebugState(int sockfd, int state){
     setsockopt(sockfd, IPPROTO_IP, CMD_SET_DEBUG_STATE, &state, sizeof(state));
 }
+
 
 unsigned int str2Ip(char* ipstr)//字符串类型的ip转换为整型
 {

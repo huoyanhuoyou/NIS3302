@@ -6,6 +6,7 @@
 #define CMD_ADD_RULE            CMD_MIN+4
 #define CMD_DEL_RULE            CMD_MIN+5
 #define CMD_ALT_RULE            CMD_MIN+6
+#define CMD_RULE_STATE          CMD_MIN+7
  
 #define CMD_MAX		0x6100//十进制：24832
  
@@ -18,6 +19,7 @@
  
 typedef struct{
     int id;
+    int block;
     unsigned int sip;//信息来源ip地址
     unsigned int dip;//信息目的ip地址
     unsigned short sport;//信息的发出端口
@@ -38,6 +40,13 @@ typedef struct{
     Rule rule;
     Rule_Mark_Bit mark_bit;
 }Rule_with_tag;
+
+typedef struct
+{
+    int rule_id;
+    int blocked;
+}RuleStat;
+
  
 typedef struct{
     unsigned int count;//表示规则的个数
