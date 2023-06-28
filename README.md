@@ -37,11 +37,24 @@ sudo ./cmdtool rule show
 sudo ./cmdtool rule del [rule_id]
 ```
 
+欲删除多于一个规则，可以列举要删除的规则id：
+```
+sudo ./cmdtool rule del 1 3 7
+```
+上述命令删除id为1，3，7的命令。
+
 ### 修改规则
 
 ```
 sudo ./cmdtool rule alt [rule_id] [args]
 ```
+
+### 临时屏蔽规则
+
+```
+sudo ./cmdtool rule set [rule_id] [0/1]
+```
+其中，0为屏蔽规则，1为生效规则。
 
 ### 修改调试等级
 
