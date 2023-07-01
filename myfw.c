@@ -25,6 +25,7 @@ static struct nf_sockopt_ops nfhoSockopt;
 //global variable
 static int debug_level = 0;
 static int nfcount = 0;
+int i = 0;
 
 //Rules
 static Rule* g_rules;	//group of rules
@@ -210,7 +211,7 @@ void addRule(Rule* rule){
 void delRule(int rule_id){
 	Rule* ptr = g_rules;	// find the head
 	int found=-1;
-	for(int i=0;i<g_rules_current_count;++i){
+	for(i=0;i<g_rules_current_count;++i){
 		if((ptr+i)->id == rule_id){	//find the target rule
 			found = i;
 			break;
@@ -218,7 +219,7 @@ void delRule(int rule_id){
 	}
 
 	if(found != -1){// if found
-		for(int i = found+1; i<g_rules_current_count;++i){
+		for(i = found+1; i<g_rules_current_count;++i){
 			memcpy(g_rules + i - 1, g_rules + i, sizeof(Rule));
 		}
 		g_rules_current_count--;
@@ -332,7 +333,7 @@ void debugInfo(char* msg)//记录操作次数，将每次的操作信息输出�
 
 int checkExistance(Rule* rule){
 	Rule* ptr = NULL;
-	for(int i = 0; i < g_rules_current_count; ++i){
+	for(i = 0; i < g_rules_current_count; ++i){
 		ptr = (Rule*)g_rules + i;
 		if(ptr->sip == rule->sip && ptr->sport == rule->sport 
 			&& ptr->dip == rule->dip && ptr->dport == rule->dport
@@ -346,7 +347,7 @@ int checkExistance(Rule* rule){
 Rule* searchRuleById(int id){
 	Rule* ptr = g_rules;
 	Rule* target = NULL;
-	for(int i=0; i<g_rules_current_count;++i){
+	for(i=0; i<g_rules_current_count;++i){
 		if((ptr+i)->id == id){
 			target = ptr + i;
 			break;
@@ -363,7 +364,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 	struct iphdr* iph = ip_hdr(skb);
 	struct tcphdr* tcph;
 	struct udphdr* udph;
-	int act = 1, i;
+	int act = 1;
 	Rule* r;
 	for (i = 0; i < g_rules_current_count; i++){//遍历规则集
 		r = g_rules + i;//用r来遍历
