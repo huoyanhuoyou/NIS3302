@@ -13,6 +13,7 @@
 
 //unimportant function declaration
 void debugInfo(char* msg);
+int isEqual(Control_Time *ct1, Control_Time *ct2);
 
 //定义detfilter的5个钩子点：
 static struct nf_hook_ops nfhoLocalIn;
@@ -234,26 +235,40 @@ void delRule(int rule_id){
 
 void altRule(Rule_with_tag* tag_rule){
 	Rule* target = searchRuleById(tag_rule->id);
-	if(target != NULL){
-		if(tag_rule->mark_bit.protocol == 1) target->protocol = tag_rule->rule.protocol;
-		if(tag_rule->mark_bit.sip == 1) target->sip = tag_rule->rule.sip;
-		if(tag_rule->mark_bit.dip == 1) target->dip = tag_rule->rule.dip;
-		if(tag_rule->mark_bit.sport == 1) target->sport = tag_rule->rule.sport;
-		if(tag_rule->mark_bit.dport == 1) target->dport = tag_rule->rule.dport;
-		if(tag_rule->mark_bit.ct_date == 1)	target->controlled_time.date = tag_rule->rule.controlled_time.date;
-		if(tag_rule->mark_bit.ct_wday == 1) target->controlled_time.wday = tag_rule->rule.controlled_time.wday;
-		if(tag_rule->mark_bit.ct_stime == 1){
-			target->controlled_time.s_hour = tag_rule->rule.controlled_time.s_hour;
-			target->controlled_time.s_min = tag_rule->rule.controlled_time.s_min;
-		}
-		if(tag_rule->mark_bit.ct_etime == 1){
-			target->controlled_time.e_hour = tag_rule->rule.controlled_time.e_hour;
-			target->controlled_time.e_min = tag_rule->rule.controlled_time.e_min;
-		}
-		alt_succeed = 1;
-	}else{
+	if (target == NULL){// not found
 		alt_succeed = 0;
+		return;
 	}
+
+	Rule* temp = vmalloc(sizeof(Rule));
+	//copy target to temp
+	memcpy(temp, target, sizeof(Rule));
+
+	if(tag_rule->mark_bit.protocol == 1) temp->protocol = tag_rule->rule.protocol;
+	if(tag_rule->mark_bit.sip == 1) temp->sip = tag_rule->rule.sip;
+	if(tag_rule->mark_bit.dip == 1) temp->dip = tag_rule->rule.dip;
+	if(tag_rule->mark_bit.sport == 1) temp->sport = tag_rule->rule.sport;
+	if(tag_rule->mark_bit.dport == 1) temp->dport = tag_rule->rule.dport;
+	if(tag_rule->mark_bit.ct_date == 1)	temp->controlled_time.date = tag_rule->rule.controlled_time.date;
+	if(tag_rule->mark_bit.ct_wday == 1) temp->controlled_time.wday = tag_rule->rule.controlled_time.wday;
+	if(tag_rule->mark_bit.ct_stime == 1){
+		temp->controlled_time.s_hour = tag_rule->rule.controlled_time.s_hour;
+		temp->controlled_time.s_min = tag_rule->rule.controlled_time.s_min;
+	}
+	if(tag_rule->mark_bit.ct_etime == 1){
+		temp->controlled_time.e_hour = tag_rule->rule.controlled_time.e_hour;
+		temp->controlled_time.e_min = tag_rule->rule.controlled_time.e_min;
+	}
+
+	if(checkExistance(temp)){
+		alt_succeed = 2;// marks already exists
+	}else{
+		memcpy(target, temp, sizeof(Rule));
+		alt_succeed = 1;
+	}
+
+	vfree(temp);
+
 }
 
 void changeRuleStat(int rule_id, int blocked){
@@ -347,7 +362,8 @@ int checkExistance(Rule* rule){
 		ptr = (Rule*)g_rules + i;
 		if(ptr->sip == rule->sip && ptr->sport == rule->sport 
 			&& ptr->dip == rule->dip && ptr->dport == rule->dport
-				&& ptr->protocol == rule->protocol){
+				&& ptr->protocol == rule->protocol
+					&& isEqual(&(ptr->controlled_time), &(rule->controlled_time))){
 					return 1;
 				}
 	}
@@ -380,7 +396,9 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 	struct iphdr* iph = ip_hdr(skb);
 	struct tcphdr* tcph;
 	struct udphdr* udph;
-	int act = 1;
+
+	// printk("%d,%d,%d\n",iph->protocol,iph->saddr,iph->daddr);
+
 	Rule* r;
 	for (i = 0; i < g_rules_current_count; i++){//遍历规则集
 		r = g_rules + i;//用r来遍历
@@ -431,7 +449,18 @@ int matchDay(struct tm *tm1, Control_Time* ct){
 	if(s_time < now && now < e_time){
 		timematch = 1;
 	}
-	printk("%d,%d,%d\n",wdaymatch,timematch,datematch);
+	// printk("%d, %d", ct->wday, tm1->tm_wday);
+	// printk("%d,%d,%d\n",wdaymatch,timematch,datematch);
 
 	return (wdaymatch && timematch && datematch);
+}
+
+int isEqual(Control_Time *ct1, Control_Time *ct2){
+	if(ct1->date != ct2->date) return 0;
+	if(ct1->wday != ct2->wday) return 0;
+	if(ct1->s_hour != ct2->s_hour) return 0;
+	if(ct1->s_min != ct2->s_min) return 0;
+	if(ct1->e_hour != ct2->e_hour) return 0;
+	if(ct1->e_min != ct2->e_min) return 0;
+	return 1;
 }

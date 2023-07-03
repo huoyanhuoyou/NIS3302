@@ -366,12 +366,16 @@ void altRule(int sockfd, int argc, char* argv[]){
     int res_len = sizeof(int);
     getsockopt(sockfd, IPPROTO_IP, CMD_ALT_RULE, &res, &res_len);
 
-    if(res){
+    if(res == 1){
         printf("Modify rule %d successfully!\n", target_id);
-    }else{
+    }else if (res == 0)
+    {
         printf("Rule %d does not exists.\n", target_id);
+    }else if (res == 2)
+    {
+        printf("Rule already exists.\n");
     }
-    
+
 }
 
 void setRuleStat(int sockfd, int rule_id, int active){
