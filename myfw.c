@@ -53,6 +53,7 @@ Rule* searchRuleById(int id);
 unsigned int hookLocalIn(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)//sk_buff就是传入的数据包，*skb
 {
 	unsigned rc = NF_ACCEPT;//默认继续传递，保持和原来输出的一致
+	printk("Existing rules:%d",g_rules_current_count);
  
 	if (matchRule(skb))//查规则集，如果返回值<=0，那么不允许进行通信
 		rc = NF_DROP;//丢弃包，不再继续传递
@@ -112,7 +113,6 @@ int hookSockoptSet(struct sock* sock,
 		case CMD_ALT_RULE:
 			Rule_with_tag* tag_rule = vmalloc(sizeof(Rule_with_tag));
 			ret = copy_from_user(tag_rule, user, sizeof(Rule_with_tag));
-			printk("Debug: point 1.\n");
 			altRule(tag_rule);
 			break;
 
@@ -366,6 +366,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 	struct udphdr* udph;
 	int act = 1;
 	Rule* r;
+	printk("Protocol: %d, sip: %d, dip: %d.\n", iph->protocol, iph->saddr, iph->daddr);
 	for (i = 0; i < g_rules_current_count; i++){//遍历规则集
 		r = g_rules + i;//用r来遍历
 		if(r->block) continue; //if blocked, then ignore
