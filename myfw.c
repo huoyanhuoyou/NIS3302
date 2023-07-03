@@ -7,6 +7,7 @@
 #include<linux/netfilter_ipv4.h>
 #include<linux/ip.h>
 #include<linux/udp.h>
+#include<linux/time.h>
 
 #include"header.h"
 
@@ -46,6 +47,7 @@ int matchRule(void* skb);
 void altRule(Rule_with_tag* tag_rule);
 void changeRuleStat(int rule_id, int blocked);
 Rule* searchRuleById(int id);
+int matchDay(struct tm *tm1, Control_Time* ct);
 
 /*
 **requires inspection**
@@ -53,12 +55,10 @@ Rule* searchRuleById(int id);
 unsigned int hookLocalIn(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)//sk_buff就是传入的数据包，*skb
 {
 	unsigned rc = NF_ACCEPT;//默认继续传递，保持和原来输出的一致
-	printk("Existing rules:%d",g_rules_current_count);
  
-	if (matchRule(skb))//查规则集，如果返回值<=0，那么不允许进行通信
+	if (matchRule(skb))
 		rc = NF_DROP;//丢弃包，不再继续传递
- 
- 
+  
 	return rc;//返回是是否允许通信，是否丢包
 }
  
@@ -240,6 +240,16 @@ void altRule(Rule_with_tag* tag_rule){
 		if(tag_rule->mark_bit.dip == 1) target->dip = tag_rule->rule.dip;
 		if(tag_rule->mark_bit.sport == 1) target->sport = tag_rule->rule.sport;
 		if(tag_rule->mark_bit.dport == 1) target->dport = tag_rule->rule.dport;
+		if(tag_rule->mark_bit.ct_date == 1)	target->controlled_time.date = tag_rule->rule.controlled_time.date;
+		if(tag_rule->mark_bit.ct_wday == 1) target->controlled_time.wday = tag_rule->rule.controlled_time.wday;
+		if(tag_rule->mark_bit.ct_stime == 1){
+			target->controlled_time.s_hour = tag_rule->rule.controlled_time.s_hour;
+			target->controlled_time.s_min = tag_rule->rule.controlled_time.s_min;
+		}
+		if(tag_rule->mark_bit.ct_etime == 1){
+			target->controlled_time.e_hour = tag_rule->rule.controlled_time.e_hour;
+			target->controlled_time.e_min = tag_rule->rule.controlled_time.e_min;
+		}
 		alt_succeed = 1;
 	}else{
 		alt_succeed = 0;
@@ -356,8 +366,14 @@ Rule* searchRuleById(int id){
 	return target;
 }
 
+
 int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通信
 {
+	time64_t n = ktime_get_real_seconds() + 8*3600;//get current time
+	struct tm tm;
+	time64_to_tm(n, 0, &tm);
+
+
 	//增加了端口控制的规则匹配
 	int sport = 0;
 	int dport = 0;
@@ -366,10 +382,15 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 	struct udphdr* udph;
 	int act = 1;
 	Rule* r;
-	printk("Protocol: %d, sip: %d, dip: %d.\n", iph->protocol, iph->saddr, iph->daddr);
 	for (i = 0; i < g_rules_current_count; i++){//遍历规则集
 		r = g_rules + i;//用r来遍历
 		if(r->block) continue; //if blocked, then ignore
+
+		//check time
+		if(!(matchDay(&tm, &(r->controlled_time)))) continue;
+
+		
+		//check time end
 		if ((!r->sip || r->sip == iph->saddr) &&
 			(!r->dip || r->dip == iph->daddr) &&
 			(!r->protocol || r->protocol == iph->protocol)){
@@ -392,4 +413,25 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 		}
 	}
 	return NMATCH;
+}
+
+
+int matchDay(struct tm *tm1, Control_Time* ct){
+	int wdaymatch = 0;
+	int timematch = 0;
+	int datematch = 0;
+
+	if(ct->wday == -1 || tm1->tm_wday == ct->wday) wdaymatch = 1;
+	if(ct->date == -1 || tm1->tm_mday == ct->date) datematch = 1;
+	
+	int s_time = 60*(ct->s_hour) + ct->s_min;
+	int e_time = 60*(ct->e_hour) + ct->e_min;
+	int now = 60*(tm1->tm_hour) + tm1->tm_min;
+
+	if(s_time < now && now < e_time){
+		timematch = 1;
+	}
+	printk("%d,%d,%d\n",wdaymatch,timematch,datematch);
+
+	return (wdaymatch && timematch && datematch);
 }
