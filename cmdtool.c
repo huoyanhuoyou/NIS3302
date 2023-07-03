@@ -12,6 +12,7 @@
 #include<getopt.h>
 
 void paramsError();//use when params error
+void showUsage();
 
 
 //key function
@@ -46,6 +47,13 @@ Command tool for Tiny Firewall. Should support:
 */
 
 int main(int argc, char* argv[]){
+    // check if help
+    if(getopt(argc, argv, "h")!=-1){
+        showUsage();
+        exit(-1);
+    }
+
+
     //create sockfd
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
     //check sockfd
@@ -57,6 +65,16 @@ int main(int argc, char* argv[]){
     int op = 0; //defination of operator
     if(!strncmp(argv[1], "rule", 4)) op = 1;
     if(!strncmp(argv[1], "debug", 5)) op = 2;
+
+    if(op == 0){
+        paramsError("Only support command: rule and debug!");
+        exit(-1);
+    }
+
+    if(argc < 3){
+        paramsError("Too few arguments!");
+        exit(-1);
+    }
 
     switch (op)
     {
@@ -81,7 +99,7 @@ int main(int argc, char* argv[]){
             setRuleStat(sockfd, atoi(argv[3]), atoi(argv[4]));
             break;
         }
-        paramsError();
+        paramsError("Command not found in rule!");
         break;
     
     case 2:
@@ -90,12 +108,13 @@ int main(int argc, char* argv[]){
             break;
         }
         if(!strncmp(argv[2], "set", 3)){
+            if(argc < 4) paramsError("Too few arguments!");
             setDebugState(sockfd, atoi(argv[3]));
             break;
         }
         break;
     default:
-        paramsError();
+        paramsError("Command not found in debug!");
         break;
     }
     close(sockfd);
@@ -103,8 +122,8 @@ int main(int argc, char* argv[]){
 }
 //function main() over.
 
-void paramsError(){
-    printf("Invalid command! Use \'-h\' to show usage!\n");
+void paramsError(char *info){
+    printf("Invalid command! %s Use \'-h\' to show usage!\n", info);
     exit(-1);
 }
 
@@ -378,4 +397,16 @@ unsigned short str2Protocol(char* protstr)//将字符串类型的协议转为短
 	else if (!strcmp(protstr, "TCP"))protocol = MYFW_TCP;
 	else if (!strcmp(protstr, "UDP"))protocol = MYFW_UDP;
 	return protocol;
+}
+
+void showUsage(){
+    printf("Supported commands:\n");
+    printf("sudo ./cmdtool rule [add/del/alt/show] [args]:\n");
+    printf("add: add a new rule. Supported args: -m dip -n dport -x sip -y sport, with default value: any.\n");
+    printf("del: delete rules by given id. Supported args: ids.\n");
+    printf("alt: change a existing rule. Supported args is the same as add.\n");
+    printf("show: show all rules. No args.\n");
+    printf("sudo ./cmdtool debug [show/set]:\n");
+    printf("show: show debug info. No args.\n");
+    printf("set: set debug level. Debug level can be 0 or 1.\n");
 }
