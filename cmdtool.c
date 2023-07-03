@@ -153,7 +153,9 @@ void showRules(int sockfd){
         port2Str(r->dport, dport);
         protocol2Str(r->protocol, protocol);
 
-        printf("Rule %d: \t%s:%s -> %s:%s, %s\t%s\n", id, sip, sport, dip, dport, protocol, (blocked) ? "blocked": "active");
+        printf("Rule %d: \t%s:%s -> %s:%s, %s\t%s, (%d, %d, %02d:%02d - %02d:%02d)\n", 
+            id, sip, sport, dip, dport, protocol, (blocked) ? "blocked": "active", r->controlled_time.wday, r->controlled_time.date, 
+                r->controlled_time.s_hour, r->controlled_time.s_min, r->controlled_time.e_hour, r->controlled_time.e_min);
         r = r + 1;
     }
 
@@ -163,6 +165,12 @@ void addRule(int sockfd, int argc, char* argv[]){
     Rule* new_rule = malloc(sizeof(Rule));
     new_rule->id = 0;
     new_rule->block = 0;
+    new_rule->controlled_time.date = -1;
+    new_rule->controlled_time.wday = -1;
+    new_rule->controlled_time.s_hour = 0;
+    new_rule->controlled_time.s_min = 0;
+    new_rule->controlled_time.e_hour = 24;
+    new_rule->controlled_time.e_min = 0;
 
     char *sip;
     char *dip; 
@@ -176,9 +184,11 @@ void addRule(int sockfd, int argc, char* argv[]){
     dport = any;
     protocol = any;
 
+
     // read params
     char optret;
-    while((optret = getopt(argc, argv, "p:x:y:m:n:b:")) != -1){
+    char *hourStr, *minStr;
+    while((optret = getopt(argc, argv, "p:x:y:m:n:b:d:w:s:e:")) != -1){
         switch(optret){
             case 'p':
                 protocol = optarg;
@@ -202,6 +212,30 @@ void addRule(int sockfd, int argc, char* argv[]){
 
             case 'b':
                 new_rule->block = atoi(optarg);
+                break;
+
+            case 'd':
+                new_rule->controlled_time.date = atoi(optarg);
+                break;
+
+            case 'w':
+                new_rule->controlled_time.wday = atoi(optarg);
+                break;
+
+            case 's':
+                hourStr = strtok(optarg, ":");
+                minStr = strtok(NULL, ":");
+
+                new_rule->controlled_time.s_hour = atoi(hourStr);
+                new_rule->controlled_time.s_min = atoi(minStr);
+                break;
+
+            case 'e':
+                hourStr = strtok(optarg, ":");
+                minStr = strtok(NULL, ":");
+
+                new_rule->controlled_time.e_hour = atoi(hourStr);
+                new_rule->controlled_time.e_min = atoi(minStr);
                 break;
         }
     }
@@ -257,10 +291,15 @@ void altRule(int sockfd, int argc, char* argv[]){
     alt_rule_mark_bit->sport = 0;
     alt_rule_mark_bit->dport = 0;
     alt_rule_mark_bit->protocol = 0;
+    alt_rule_mark_bit->ct_date = 0;
+    alt_rule_mark_bit->ct_wday = 0;
+    alt_rule_mark_bit->ct_stime = 0;
+    alt_rule_mark_bit->ct_etime = 0;
 
     // get params and process
+    char *hourStr, *minStr;
     char optret;
-    while((optret = getopt(argc, argv, "p:x:y:m:n:")) != -1){
+    while((optret = getopt(argc, argv, "p:x:y:m:n:d:w:s:e:")) != -1){
         switch (optret){
             case 'p':
                 alt_rule->protocol = str2Protocol(optarg);
@@ -286,6 +325,34 @@ void altRule(int sockfd, int argc, char* argv[]){
                 alt_rule->dport = str2Port(optarg);
                 alt_rule_mark_bit->dport = 1;
                 break;
+
+            case 'd':
+                alt_rule->controlled_time.date = atoi(optarg);
+                alt_rule_mark_bit->ct_date = 1;
+                break;
+
+            case 'w':
+                alt_rule->controlled_time.wday = atoi(optarg);
+                alt_rule_mark_bit->ct_wday = 1;
+                break;
+
+            case 's':
+                hourStr = strtok(optarg, ":");
+                minStr = strtok(NULL, ":");
+
+                alt_rule->controlled_time.s_hour = atoi(hourStr);
+                alt_rule->controlled_time.s_min = atoi(minStr);
+                alt_rule_mark_bit->ct_stime = 1;
+                break;
+
+            case 'e':
+                hourStr = strtok(optarg, ":");
+                minStr = strtok(NULL, ":");
+
+                alt_rule->controlled_time.e_hour = atoi(hourStr);
+                alt_rule->controlled_time.e_min = atoi(minStr);
+                alt_rule_mark_bit->ct_etime = 1;
+                break;
         }
     }
     Rule_with_tag* tag_rule = malloc(sizeof(Rule_with_tag));
@@ -299,12 +366,16 @@ void altRule(int sockfd, int argc, char* argv[]){
     int res_len = sizeof(int);
     getsockopt(sockfd, IPPROTO_IP, CMD_ALT_RULE, &res, &res_len);
 
-    if(res){
+    if(res == 1){
         printf("Modify rule %d successfully!\n", target_id);
-    }else{
+    }else if (res == 0)
+    {
         printf("Rule %d does not exists.\n", target_id);
+    }else if (res == 2)
+    {
+        printf("Rule already exists.\n");
     }
-    
+
 }
 
 void setRuleStat(int sockfd, int rule_id, int active){

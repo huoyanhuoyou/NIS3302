@@ -16,6 +16,18 @@
 
 #define MATCH 1
 #define NMATCH 0
+
+typedef struct{
+    int wday;   //0-6
+
+    int s_hour;
+    int s_min;
+    int e_hour;
+    int e_min;
+
+    int date;    //1-31
+
+}Control_Time;
  
 typedef struct{
     int id;
@@ -25,6 +37,7 @@ typedef struct{
     unsigned short sport;//信息的发出端口
     unsigned short dport;//发送信息的目的端口
     unsigned short protocol;//使用的协议
+    Control_Time controlled_time;
 }Rule;
 
 typedef struct{
@@ -33,6 +46,10 @@ typedef struct{
     unsigned int sport;
     unsigned int dport;
     unsigned int protocol;
+    unsigned int ct_date;
+    unsigned int ct_wday;
+    unsigned int ct_stime;
+    unsigned int ct_etime;
 }Rule_Mark_Bit;
 
 typedef struct{
