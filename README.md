@@ -65,3 +65,7 @@ sudo ./cmdtool debug set [0/1]
 ```
 sudo ./cmdtool debug show
 ```
+### 注意：
+
+先版本似乎仅就报错进行了debug，不过似乎没有更改非法输入拦截所以仍无法正确使用对应args；
+
