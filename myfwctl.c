@@ -33,7 +33,7 @@ unsigned short str2Port(char* portstr);//将端口转为整型
 char* port2Str(unsigned short port, char buf[16]);//将整型端口构造为字符
 char* protocol2Str(unsigned short protocol, char buf[16]);//将整型协议进行转为字符串
 unsigned short str2Protocol(char* protstr);//将字符串类型的协议转为短整型的协议
-void str2mac(char* r_mac, const char* getmac);
+unsigned char* str2mac(char* dev_mac);
 unsigned int str2ICMP_type(char* type);
 char* mac2str(char *dev_mac);
 char* ICMP_type(int type);
@@ -141,7 +141,7 @@ void showRules(int sockfd){
     Rule* r = &(tbl->rule);
     printf("Existing number of rules: %d.\n", tbl->count);
     
-    char sip[32], dip[32], sport[32], dport[32], protocol[16],indev_mac[17],outdev_mac[17];
+    char sip[32], dip[32], sport[32], dport[32], protocol[16],indev_mac[17],outdev_mac[17],ICMP_type[4];
     
     int id, blocked;
     for(int i = 0; i<tbl->count; ++i){
@@ -152,17 +152,10 @@ void showRules(int sockfd){
         port2Str(r->sport, sport);
         port2Str(r->dport, dport);
         protocol2Str(r->protocol, protocol);
-        //indev_mac = r->indev_mac;
-        //outdev_mac = r->outdev_mac;
-        if(r->ICMP_type == 0) 
-        {
-            char* ICMP_type = "any or none";
-            printf("Rule %d: \t%s:%s -> %s:%s, protocol:%s, indev_mac:%s, outdev_mac:%s, ICMP_type:%s is \t%s\n", id, sip, sport, dip, dport, protocol,r->indev_mac,r->outdev_mac, ICMP_type, (blocked) ? "blocked": "active");
-        }
-        else 
-        {
-            printf("Rule %d: \t%s:%s -> %s:%s, protocol:%s, indev_mac:%s, outdev_mac:%s, ICMP_type:%d is \t%s\n", id, sip, sport, dip, dport, protocol,r->indev_mac,r->outdev_mac, r->ICMP_type, (blocked) ? "blocked": "active");
-        }
+        mac2str(r->indev_mac,indev_mac);
+        mac2str(r->outdev_mac,out_dev);
+        ICMP_type2str(r->ICMP_type,ICMP_type);
+        printf("Rule %d: \t%s:%s -> %s:%s, protocol:%s, indev_mac:%s, outdev_mac:%s, ICMP_type:%s is \t%s\n", id, sip, sport, dip, dport, protocol,indev_mac,outdev_mac, ICMP_type, (blocked) ? "blocked": "active");
         r = r + 1;
     }
 
@@ -237,8 +230,8 @@ void addRule(int sockfd, int argc, char* argv[]){
     new_rule->dport = str2Port(dport);
     new_rule->sport = str2Port(sport);
     new_rule->protocol = str2Protocol(protocol);
-    str2mac(new_rule->indev_mac, indev_mac);
-    str2mac(new_rule->outdev_mac, outdev_mac);
+    new_rule->indev_mac = str2mac(indev_mac);
+    new_rule->outdev_mac = str2mac(outdev_mac);
     new_rule->ICMP_type = str2ICMP_type(ICMP_type);
     void* val=(void*)new_rule;
 
@@ -317,17 +310,17 @@ void altRule(int sockfd, int argc, char* argv[]){
                 break;
             
             case 'i':
-                str2mac(alt_rule->indev_mac, optarg);
+                alt_rule->indev_mac = str2mac(optarg);
                 alt_rule_mark_bit->indev_mac = 1;
                 break;
 
             case 'o':
-                str2mac(alt_rule->outdev_mac, optarg);
+                alt_rule->outdev_mac = str2mac(optarg);
                 alt_rule_mark_bit->outdev_mac = 1;
                 break;
 
             case 't':
-                alt_rule->ICMP_type = str2ICMP_type(optarg);
+                alt_rule->ICMP_type = str2mac(optarg);
                 alt_rule_mark_bit->ICMP_type = 1;
                 break;
         }
@@ -456,25 +449,18 @@ unsigned int str2ICMP_type(char* ICMP_type)
 
 	return type;
 }
-
-void str2mac(char* r_mac, const char* getmac)
+/*
+unsigned char* str2mac(char* dev_mac)
 {
+    char devmac[17];
     char* any = "any";
-    if(!strcmp(getmac,"any"))
-    {
-        r_mac[0] = 'a';
-        r_mac[1] = 'n';
-        r_mac[2] = 'y';
-    }
+    if(!strcmp(dev_mac,"any")) return any;
     else
     {
-        for(int i = 0; i<17; i++)
-        {
-            r_mac[i] = getmac[i];
-        }
+        return strcpy(devmac,dev_mac)
     }
 }
-/*
+
 char* mac2str(char *dev_mac)
 {
     char devmac[17];
@@ -482,24 +468,20 @@ char* mac2str(char *dev_mac)
     if(!strcmp(dev_mac,"any")) return any;
     else
     {
-        return strcpy(devmac,dev_mac);
+        return strcpy(devmac,dev_mac)
     }
 }
-
-char* ICMP_type2str(int i_type)
+*/
+char* ICMP_type(int i_type)
 {
-    char *type = new char[20];
-    if(i_type == 0)
-    {
-        type = "any or none";
-         
-    }
+    char type[20];
+    if(i_type == 0) type = "None or Any"
     else type = itoa(i_type, type, 10);
 
     return type;
 }
 
-*/
+
 void showUsage(){
     printf("Supported commands:\n");
     printf("sudo ./cmdtool rule [add/del/alt/show] [args]:\n");
