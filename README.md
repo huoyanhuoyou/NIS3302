@@ -25,6 +25,8 @@ sudo ./cmdtool rule add [args]
 
 `-x sip -y sport -m dip -n dport`
 
+`-i indev_mac -o outdev_mac -t ICMP_type`
+
 ### 展示所有规则
 
 ```
@@ -65,3 +67,4 @@ sudo ./cmdtool debug set [0/1]
 ```
 sudo ./cmdtool debug show
 ```
+
