@@ -16,7 +16,7 @@
 
 #define MATCH 1
 #define NMATCH 0
-
+ 
 typedef struct{
     int wday;   //0-6
 
@@ -28,7 +28,7 @@ typedef struct{
     int date;    //1-31
 
 }Control_Time;
- 
+
 typedef struct{
     int id;
     int block;
@@ -37,6 +37,9 @@ typedef struct{
     unsigned short sport;//信息的发出端口
     unsigned short dport;//发送信息的目的端口
     unsigned short protocol;//使用的协议
+    char indev_mac[20];//数据包所欲采用的接入口设备地址
+    char outdev_mac[20];//数据包所欲采用的接出口设备地址
+    unsigned int ICMP_type;//数据包若为ICMP报文，其子类型
     Control_Time controlled_time;
 }Rule;
 
@@ -46,6 +49,9 @@ typedef struct{
     unsigned int sport;
     unsigned int dport;
     unsigned int protocol;
+    unsigned int indev_mac;//数据包所欲采用的接入口设备地址
+    unsigned int outdev_mac;//数据包所欲采用的接出口设备地址
+    unsigned int ICMP_type;//数据包若为ICMP报文，其子类型
     unsigned int ct_date;
     unsigned int ct_wday;
     unsigned int ct_stime;
@@ -56,6 +62,7 @@ typedef struct{
     int id;
     Rule rule;
     Rule_Mark_Bit mark_bit;
+    
 }Rule_with_tag;
 
 typedef struct

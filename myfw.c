@@ -7,13 +7,12 @@
 #include<linux/netfilter_ipv4.h>
 #include<linux/ip.h>
 #include<linux/udp.h>
+#include <linux/icmp.h>
 #include<linux/time.h>
-
 #include"header.h"
 
 //unimportant function declaration
 void debugInfo(char* msg);
-int isEqual(Control_Time *ct1, Control_Time *ct2);
 
 //定义detfilter的5个钩子点：
 static struct nf_hook_ops nfhoLocalIn;
@@ -28,11 +27,6 @@ static struct nf_sockopt_ops nfhoSockopt;
 static int debug_level = 0;
 static int nfcount = 0;
 int i = 0;
-char c_sip[32];
-char c_dip[32];
-char c_sport[16];
-char c_dport[16];
-char c_protocol[16];
 
 //Rules
 static Rule* g_rules;	//group of rules
@@ -53,50 +47,56 @@ int matchRule(void* skb);
 void altRule(Rule_with_tag* tag_rule);
 void changeRuleStat(int rule_id, int blocked);
 Rule* searchRuleById(int id);
+void get_skb_outgoing_interface_mac(struct sk_buff *skb, unsigned char *mac_addr);
+int isEqual(Control_Time *ct1, Control_Time *ct2);
 int matchDay(struct tm *tm1, Control_Time* ct);
-
-//util function
-unsigned int str2Ip(char* ipstr);//字符串类型的ip转换为整型
-char* ip2Str(unsigned int ip, char buf[32]);//将整型的ip转为字符型的ip
-unsigned short str2Port(char* portstr);//将端口转为整型
-char* port2Str(unsigned short port, char buf[16]);//将整型端口构造为字符
-char* protocol2Str(unsigned short protocol, char buf[16]);//将整型协议进行转为字符串
-unsigned short str2Protocol(char* protstr);//将字符串类型的协议转为短整型的协议
-
 /*
 **requires inspection**
 */
+
+void get_skb_outgoing_interface_mac(struct sk_buff *skb, unsigned char *mac_addr) {
+	struct net_device *dev = skb_dst(skb)->dev;
+    // 检查出口接口是否有效
+    if (dev) {
+        // 获取出口接口的 MAC 地址
+        memcpy(mac_addr, dev->dev_addr, ETH_ALEN);
+    }
+}
+
+
 unsigned int hookLocalIn(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)//sk_buff就是传入的数据包，*skb
 {
 	unsigned rc = NF_ACCEPT;//默认继续传递，保持和原来输出的一致
  
-	if (matchRule(skb))
+	printk("Existing rules:%d",g_rules_current_count);
+	if (matchRule(skb))//查规则集，如果返回值<=0，那么不允许进行通信
 		rc = NF_DROP;//丢弃包，不再继续传递
-  
+ 
+ 
 	return rc;//返回是是否允许通信，是否丢包
 }
  
 unsigned int hookLocalOut(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
-	// debugInfo("hookLocalOut");
+	debugInfo("hookLocalOut");
 	return NF_ACCEPT;//接收该数据
 }
  
 unsigned int hookPreRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
-	// debugInfo("hookPreRouting");
+	debugInfo("hookPreRouting");
 	return NF_ACCEPT;//接收该数据
 }
  
 unsigned int hookPostRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
-	// debugInfo("hookPostRouting");
+	debugInfo("hookPostRouting");
 	return NF_ACCEPT;//接收该数据
 }
  
 unsigned int hookForward(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
-	// debugInfo("hookForwarding");
+	debugInfo("hookForwarding");
 	return NF_ACCEPT;//接收该数据
 }
  
@@ -107,43 +107,42 @@ int hookSockoptSet(struct sock* sock,
 {
 	int ret;
 
-	switch(cmd){
-		case CMD_SET_DEBUG_STATE:
+	
+		if(cmd == CMD_SET_DEBUG_STATE)
+		{
 			ret = copy_from_user(&debug_level, user, sizeof(debug_level));
 			
-			//record
-			printk("[Myfw]Changed debug level to %d.\n",debug_level);
-
-			break;
-
-		case CMD_ADD_RULE:
+		}
+		if(cmd == CMD_ADD_RULE)
+		{
 			Rule* val=vmalloc(sizeof(Rule));
 			ret = copy_from_user(val, user, sizeof(Rule));
 			addRule(val);
-			break;
-		
-		case CMD_DEL_RULE:
+			
+		}
+		if(cmd == CMD_DEL_RULE)
+		{
 			int rule_id;
 			ret = copy_from_user(&rule_id, user, sizeof(int));
 			delRule(rule_id);
-			break;
-
-		case CMD_ALT_RULE:
+			
+		}
+		if(cmd == CMD_ALT_RULE)
+		{
 			Rule_with_tag* tag_rule = vmalloc(sizeof(Rule_with_tag));
 			ret = copy_from_user(tag_rule, user, sizeof(Rule_with_tag));
+			printk("Debug: point 1.\n");
 			altRule(tag_rule);
-			break;
-
-		case CMD_RULE_STATE:
+			
+		}
+		if(cmd == CMD_RULE_STATE)
+		{
 			RuleStat* rule_stat=vmalloc(sizeof(RuleStat));
 			ret = copy_from_user(rule_stat, user, sizeof(RuleStat));
 			changeRuleStat(rule_stat->rule_id, rule_stat->blocked);
-			break;
 			
-
-		default:
-			break;
-	}
+		}	
+	
 
 	if (ret != 0)//说明赋值失败，进行输出
 	{
@@ -193,7 +192,7 @@ int hookSockoptGet(struct sock* sock,
 
     if (ret != 0){
 		ret = -EINVAL;
-		// debugInfo("copy_to_user error");
+		debugInfo("copy_to_user error");
 	}
 
     return ret;
@@ -218,10 +217,6 @@ void addRule(Rule* rule){
 		g_rules_current_count = n_g_rules_current_count;
 		g_rules_total_count = n_g_rules_total_count;
 
-		if(debug_level){
-			printk("A new rule was added, id: %d.\n", rule->id);
-		}
-
 		add_succeed = 1;
 	}else{
 		add_succeed = 0;
@@ -241,15 +236,10 @@ void delRule(int rule_id){
 	}
 
 	if(found != -1){// if found
-		int target_id = (g_rules + found)->id;
 		for(i = found+1; i<g_rules_current_count;++i){
 			memcpy(g_rules + i - 1, g_rules + i, sizeof(Rule));
 		}
 		g_rules_current_count--;
-
-		if(debug_level){
-			printk("Rule %d was deleted!\n", target_id);
-		}
 		
 		del_succeed = 1;
 	}else{
@@ -275,6 +265,9 @@ void altRule(Rule_with_tag* tag_rule){
 	if(tag_rule->mark_bit.dip == 1) temp->dip = tag_rule->rule.dip;
 	if(tag_rule->mark_bit.sport == 1) temp->sport = tag_rule->rule.sport;
 	if(tag_rule->mark_bit.dport == 1) temp->dport = tag_rule->rule.dport;
+	if(tag_rule->mark_bit.indev_mac ==1) strcmp(temp->indev_mac, tag_rule->rule.indev_mac);
+	if(tag_rule->mark_bit.outdev_mac ==1) strcmp(temp->outdev_mac, tag_rule->rule.outdev_mac);
+	if(tag_rule->mark_bit.ICMP_type ==1) temp->ICMP_type = tag_rule->rule.ICMP_type;
 	if(tag_rule->mark_bit.ct_date == 1)	temp->controlled_time.date = tag_rule->rule.controlled_time.date;
 	if(tag_rule->mark_bit.ct_wday == 1) temp->controlled_time.wday = tag_rule->rule.controlled_time.wday;
 	if(tag_rule->mark_bit.ct_stime == 1){
@@ -290,16 +283,10 @@ void altRule(Rule_with_tag* tag_rule){
 		alt_succeed = 2;// marks already exists
 	}else{
 		memcpy(target, temp, sizeof(Rule));
-
-		if(debug_level){
-			printk("Rule %d was changed!\n", target->id);
-		}
-
 		alt_succeed = 1;
 	}
 
 	vfree(temp);
-
 }
 
 void changeRuleStat(int rule_id, int blocked){
@@ -382,7 +369,8 @@ MODULE_LICENSE("GPL");//模块的许可证声明，防止收到内核被污染�
 void debugInfo(char* msg)//记录操作次数，将每次的操作信息输出到日志
 {
 	if (debug_level){//如果等级符合要求，才进行+1和输出到日志
-		printk("[Myfw]%s.\n", msg);
+		nfcount++;
+		printk("%s, nfcount: %d\n", msg, nfcount);
 	}
 }
 
@@ -393,7 +381,10 @@ int checkExistance(Rule* rule){
 		if(ptr->sip == rule->sip && ptr->sport == rule->sport 
 			&& ptr->dip == rule->dip && ptr->dport == rule->dport
 				&& ptr->protocol == rule->protocol
-					&& isEqual(&(ptr->controlled_time), &(rule->controlled_time))){
+					&& ptr->ICMP_type == rule->ICMP_type
+						&& !strcmp(ptr->indev_mac, rule->indev_mac)
+							&& !strcmp(ptr->outdev_mac, rule->outdev_mac)
+								&& isEqual(&(ptr->controlled_time), &(rule->controlled_time))){
 					return 1;
 				}
 	}
@@ -412,32 +403,50 @@ Rule* searchRuleById(int id){
 	return target;
 }
 
-
 int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通信
 {
+	//增加了端口控制的规则匹配
 	time64_t n = ktime_get_real_seconds() + 8*3600;//get current time
 	struct tm tm;
 	time64_to_tm(n, 0, &tm);
-
-
-	//增加了端口控制的规则匹配
+	
 	int sport = 0;
 	int dport = 0;
 	struct iphdr* iph = ip_hdr(skb);
+
+	struct ethhdr *eth_hdr = (struct ethhdr *)skb_mac_header(skb);
+	unsigned indev_mac[ETH_ALEN];
+	if(skb_mac_header_was_set(skb))
+	{  
+		memcpy(indev_mac, eth_hdr->h_dest, ETH_ALEN);
+	}
+	
+	unsigned char outdev_mac[ETH_ALEN];
+
+    // 获取 skb 数据包的出口接口 MAC 地址
+    get_skb_outgoing_interface_mac(skb, outdev_mac);
+
+	//print_mac(mac_buffer,dmac);
+	//printk("%s, mac_buffer: %d\n", mac_buffer);
+	__u8 icmp_type;
+	
+    // skb包含ICMP协议
+	struct icmphdr *icmp = icmp_hdr(skb);
+	icmp_type = icmp->type;
+	
 	struct tcphdr* tcph;
 	struct udphdr* udph;
-
-	// printk("%d,%d,%d\n",iph->protocol,iph->saddr,iph->daddr);
-
+	
 	Rule* r;
 	for (i = 0; i < g_rules_current_count; i++){//遍历规则集
 		r = g_rules + i;//用r来遍历
 		if(r->block) continue; //if blocked, then ignore
 
 		//check time
-		if(!(matchDay(&tm, &(r->controlled_time)))) continue;	
-		//check time end
+		if(!(matchDay(&tm, &(r->controlled_time)))) continue;
 
+
+		//check time end
 
 		if ((!r->sip || r->sip == iph->saddr) &&
 			(!r->dip || r->dip == iph->daddr) &&
@@ -454,28 +463,23 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 				dport = udph->dest;
 				break;
 			}
-
 			if ((!r->sport || !sport || r->sport == sport) &&
 				(!r->dport || !dport || r->dport == dport)){
-				
-				//debug info
-				ip2Str(iph->saddr, c_sip);
-				ip2Str(iph->daddr, c_dip);
-				port2Str(sport, c_sport);
-				port2Str(dport, c_dport);
-				protocol2Str(iph->protocol, c_protocol);
-
-				if(debug_level){
-					printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, r->id);
-				}
-				
-				return MATCH;
+				if (!r->ICMP_type && r->ICMP_type == icmp_type)
+						{
+							if(!strcmp(r->indev_mac,"any") && r->indev_mac == indev_mac)//对网络接口设备接入口地址进行判别
+							{
+								if(!strcmp(r->outdev_mac,"any") && r->outdev_mac == outdev_mac)
+									{
+										return MATCH;
+									}
+							}		
+						}
 			}
 		}
 	}
 	return NMATCH;
 }
-
 
 int matchDay(struct tm *tm1, Control_Time* ct){
 	int wdaymatch = 0;
@@ -484,7 +488,7 @@ int matchDay(struct tm *tm1, Control_Time* ct){
 
 	if(ct->wday == -1 || tm1->tm_wday == ct->wday) wdaymatch = 1;
 	if(ct->date == -1 || tm1->tm_mday == ct->date) datematch = 1;
-	
+
 	int s_time = 60*(ct->s_hour) + ct->s_min;
 	int e_time = 60*(ct->e_hour) + ct->e_min;
 	int now = 60*(tm1->tm_hour) + tm1->tm_min;
@@ -507,42 +511,3 @@ int isEqual(Control_Time *ct1, Control_Time *ct2){
 	if(ct1->e_min != ct2->e_min) return 0;
 	return 1;
 }
- 
-char* ip2Str(unsigned int ip, char buf[32])//将整型的ip转为字符型的ip
-{
-	if (ip){
-		unsigned char* c = (unsigned char*)&ip;
-		sprintf(buf, "%d.%d.%d.%d", *c, *(c + 1), *(c + 2), *(c + 3));
-	}
-	else sprintf(buf, "any");
-	return buf;
-}
- 
-char* port2Str(unsigned short port, char buf[16])//将整型端口构造为字符
-{
-	if (port)sprintf(buf, "%d", port);
-	else sprintf(buf, "any");
-	return buf;
-}
- 
-char* protocol2Str(unsigned short protocol, char buf[16])//将整型协议进行转为字符串
-{
-	switch (protocol){
-	case 0:
-		strcpy(buf, "any");
-		break;
-	case MYFW_ICMP:
-		strcpy(buf, "ICMP");
-		break;
-	case MYFW_TCP:
-		strcpy(buf, "TCP");
-		break;
-	case MYFW_UDP:
-		strcpy(buf, "UDP");
-		break;
-	default:
-		strcpy(buf, "Unknown");
-	}
-	return buf;
-}
- 
