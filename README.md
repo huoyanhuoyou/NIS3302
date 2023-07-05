@@ -25,8 +25,13 @@ sudo ./cmdtool rule add [args]
 
 `-x sip -y sport -m dip -n dport`
 
+`-i indev_mac -o outdev_mac -t ICMP_type`
+
 基于时间段的控制
-`-d -w -s -e`：`-d`后接日期（1-31）；`-w`接星期，周日至周六分别以0-6表示；`-s -e`分别为开始时间，格式均为`hh:mm`。默认值：`00:00-24:00`。
+
+`-d -w -s -e`：`-d`后接日期（1-31）；`-w`接星期，周日至周六分别以0-6表示；`-s -e`分别为开始时间，格式均为`hh:mm`。
+默认值：`00:00-24:00`。
+
 
 ### 展示所有规则
 
@@ -68,3 +73,4 @@ sudo ./cmdtool debug set [0/1]
 ```
 sudo ./cmdtool debug show
 ```
+
