@@ -52,8 +52,7 @@ void get_skb_outgoing_interface_mac(struct sk_buff *skb, unsigned char *mac_addr
 */
 
 void get_skb_outgoing_interface_mac(struct sk_buff *skb, unsigned char *mac_addr) {
-    struct net_device *dev = skb->dev;
-
+	struct net_device *dev = skb_dst(skb)->dev;
     // 检查出口接口是否有效
     if (dev) {
         // 获取出口接口的 MAC 地址

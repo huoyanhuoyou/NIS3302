@@ -170,6 +170,8 @@ void showRules(int sockfd){
 
 void addRule(int sockfd, int argc, char* argv[]){
     Rule* new_rule = malloc(sizeof(Rule));
+    //new_rule->indev_mac = (char*)malloc(20 * sizeof(char));
+    //new_rule->outdev_mac = (char*)malloc(20 * sizeof(char));
     new_rule->id = 0;
     new_rule->block = 0;
 
@@ -274,6 +276,8 @@ void delRule(int sockfd, int argc, char* argv[]){
 
 void altRule(int sockfd, int argc, char* argv[]){
     Rule* alt_rule = malloc(sizeof(Rule));
+    //alt_rule->indev_mac = (char*)malloc(20 * sizeof(char));
+    //alt_rule->outdev_mac = (char*)malloc(20 * sizeof(char));
     Rule_Mark_Bit* alt_rule_mark_bit = malloc(sizeof(Rule_Mark_Bit));
 
     int target_id = atoi(argv[3]);
@@ -462,16 +466,11 @@ void str2mac(char* r_mac, const char* getmac)
     char* any = "any";
     if(!strcmp(getmac,"any"))
     {
-        r_mac[0] = 'a';
-        r_mac[1] = 'n';
-        r_mac[2] = 'y';
+        strcpy(r_mac, getmac);
     }
     else
     {
-        for(int i = 0; i<17; i++)
-        {
-            r_mac[i] = getmac[i];
-        }
+        strcpy(r_mac, getmac);
     }
 }
 /*
