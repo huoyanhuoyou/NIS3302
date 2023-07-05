@@ -25,6 +25,8 @@ sudo ./cmdtool rule add [args]
 
 `-x sip -y sport -m dip -n dport`
 
+基于网络接口和ICMP报文子类型的控制
+
 `-i indev_mac -o outdev_mac -t ICMP_type`
 
 基于时间段的控制
