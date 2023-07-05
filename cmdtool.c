@@ -52,11 +52,11 @@ Command tool for Tiny Firewall. Should support:
 
 int main(int argc, char* argv[]){
     // check if help
-    if(getopt(argc, argv, "h")!=-1){
+    /*if(getopt(argc, argv, "h")!=-1){
         showUsage();
         exit(-1);
     }
-
+    */
 
     //create sockfd
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
@@ -189,7 +189,9 @@ void addRule(int sockfd, int argc, char* argv[]){
     sport = any;
     dport = any;
     protocol = any;
-
+    indev_mac = any;
+    outdev_mac = any;
+    ICMP_type = any;
 
     // read params
     char optret;
@@ -229,7 +231,7 @@ void addRule(int sockfd, int argc, char* argv[]){
 
             case 't':
                 ICMP_type = optarg;
-
+                break;
 
         }
     }
@@ -241,6 +243,8 @@ void addRule(int sockfd, int argc, char* argv[]){
     new_rule->protocol = str2Protocol(protocol);
     str2mac(new_rule->indev_mac, indev_mac);
     str2mac(new_rule->outdev_mac, outdev_mac);
+    //new_rule->indev_mac = *indev_mac;
+    //new_rule->outdev_mac = *outdev_mac;
     new_rule->ICMP_type = str2ICMP_type(ICMP_type);
     void* val=(void*)new_rule;
 
@@ -322,11 +326,13 @@ void altRule(int sockfd, int argc, char* argv[]){
             
             case 'i':
                 str2mac(alt_rule->indev_mac, optarg);
+                //alt_rule->indev_mac = *optarg;
                 alt_rule_mark_bit->indev_mac = 1;
                 break;
 
             case 'o':
                 str2mac(alt_rule->outdev_mac, optarg);
+                //alt_rule->outdev_mac = *optarg;
                 alt_rule_mark_bit->outdev_mac = 1;
                 break;
 

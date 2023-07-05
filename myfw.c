@@ -350,7 +350,10 @@ int checkExistance(Rule* rule){
 		ptr = (Rule*)g_rules + i;
 		if(ptr->sip == rule->sip && ptr->sport == rule->sport 
 			&& ptr->dip == rule->dip && ptr->dport == rule->dport
-				&& ptr->protocol == rule->protocol){
+				&& ptr->protocol == rule->protocol
+					&& ptr->ICMP_type == rule->ICMP_type
+						&& !strcmp(ptr->indev_mac, rule->indev_mac)
+							&& !strcmp(ptr->outdev_mac, rule->outdev_mac)){
 					return 1;
 				}
 	}
