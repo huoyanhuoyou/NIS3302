@@ -52,11 +52,16 @@ Command tool for Tiny Firewall. Should support:
 
 int main(int argc, char* argv[]){
     // check if help
-    /*if(getopt(argc, argv, "h")!=-1){
+    if(argc < 1){
+        paramsError("Need command!");
+        exit(-1);
+    }
+
+    if(!strncmp(argv[1],"help",4)){
         showUsage();
         exit(-1);
     }
-    */
+    
 
     //create sockfd
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
@@ -127,7 +132,7 @@ int main(int argc, char* argv[]){
 //function main() over.
 
 void paramsError(char *info){
-    printf("Invalid command! %s Use \'-h\' to show usage!\n", info);
+    printf("Invalid command! %s Use \'help\' to show usage!\n", info);
     exit(-1);
 }
 

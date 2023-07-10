@@ -56,6 +56,7 @@ Rule* searchRuleById(int id);
 void get_skb_outgoing_interface_mac(struct sk_buff *skb, unsigned char *mac_addr);
 int isEqual(Control_Time *ct1, Control_Time *ct2);
 int matchDay(struct tm *tm1, Control_Time* ct);
+int stringsAreEqual(const char* str1, const char* str2) ;
 /*
 **requires inspection**
 */
@@ -83,7 +84,7 @@ unsigned int hookLocalIn(void* priv, struct sk_buff* skb, const struct nf_hook_s
 {
 	unsigned rc = NF_ACCEPT;//默认继续传递，保持和原来输出的一致
  
-	printk("Existing rules:%d",g_rules_current_count);
+	//printk("Existing rules:%d",g_rules_current_count);
 	if (matchRule(skb))//查规则集，如果返回值<=0，那么不允许进行通信
 		rc = NF_DROP;//丢弃包，不再继续传递
  
@@ -254,7 +255,7 @@ void delRule(int rule_id){
 	Rule* ptr = g_rules;	// find the head
 	int found=-1;
 
-	int target_id = (g_rules + found)->id;
+	
 
 	for(i=0;i<g_rules_current_count;++i){
 		if((ptr+i)->id == rule_id){	//find the target rule
@@ -264,6 +265,7 @@ void delRule(int rule_id){
 	}
 
 	if(found != -1){// if found
+	int target_id = (g_rules + found)->id;
 		for(i = found+1; i<g_rules_current_count;++i){
 			memcpy(g_rules + i - 1, g_rules + i, sizeof(Rule));
 		}
@@ -508,11 +510,11 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 			}
 			if ((!r->sport || !sport || r->sport == sport) &&
 				(!r->dport || !dport || r->dport == dport)){
-				if (!r->ICMP_type && r->ICMP_type == icmp_type)
+				if (!r->ICMP_type || r->ICMP_type == icmp_type)
 						{
-							if(!strcmp(r->indev_mac,"any") && r->indev_mac == indev_mac)//对网络接口设备接入口地址进行判别
+							if(!stringsAreEqual(r->indev_mac,"any") || !stringsAreEqual(r->indev_mac , indev_mac))//对网络接口设备接入口地址进行判别
 							{
-								if(!strcmp(r->outdev_mac,"any") && r->outdev_mac == outdev_mac)
+								if(!stringsAreEqual(r->outdev_mac,"any") || !stringsAreEqual(r->outdev_mac , outdev_mac))
 									{
 										//debug info
 										ip2Str(iph->saddr, c_sip);
@@ -602,4 +604,15 @@ char* protocol2Str(unsigned short protocol, char buf[16])//将整型协议进行
 		strcpy(buf, "Unknown");
 	}
 	return buf;
+}
+
+int stringsAreEqual(const char* str1, const char* str2) {
+    int i = 0;
+    while (str1[i] == str2[i]) {
+        if (str1[i] == '\0') {
+            return 1; // 字符串相等
+        }
+        i++;
+    }
+    return 0; // 字符串不相等
 }
