@@ -159,7 +159,8 @@ void showRules(int sockfd){
         protocol2Str(r->protocol, protocol);
         //indev_mac = r->indev_mac;
         //outdev_mac = r->outdev_mac;
-        if(r->ICMP_type == 0) 
+        
+        if(r->ICMP_type == -1) 
         {
             char* ICMP_type = "any or none";
             printf("Rule %d: \t%s:%s -> %s:%s, protocol:%s, indev_mac:%s, outdev_mac:%s, ICMP_type:%s is \t%s (%d, %d, %02d:%02d - %02d:%02d)\n", id, sip, sport, dip, dport, protocol,r->indev_mac,r->outdev_mac, ICMP_type, (blocked) ? "blocked": "active",  r->controlled_time.wday, r->controlled_time.date, r->controlled_time.s_hour, r->controlled_time.s_min, r->controlled_time.e_hour, r->controlled_time.e_min);
@@ -533,8 +534,8 @@ unsigned short str2Protocol(char* protstr)//将字符串类型的协议转为短
 
 unsigned int str2ICMP_type(char* ICMP_type)
 {
-	unsigned int type = 0;
-	if(!strcmp(ICMP_type,"any")||!strcmp(ICMP_type,"None")) type = 0;//0表示任何子类型或非ICMP协议报文
+	unsigned int type = -1;
+	if(!strcmp(ICMP_type,"any")||!strcmp(ICMP_type,"None")) type = -1;//0表示任何子类型或非ICMP协议报文
 	else type = atoi(ICMP_type);
 
 	return type;

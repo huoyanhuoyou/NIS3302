@@ -227,7 +227,7 @@ void addRule(Rule* rule){
 		Rule* g_r = (Rule*)vmalloc(n_g_rules_current_count * sizeof(Rule));
 		
 		
-
+		
 		if(g_rules_current_count > 0){
 			memcpy(g_r, g_rules, g_rules_current_count * sizeof(Rule));
 			vfree(g_rules);

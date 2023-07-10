@@ -39,7 +39,7 @@ typedef struct{
     unsigned short protocol;//使用的协议
     char indev_mac[20];//数据包所欲采用的接入口设备地址
     char outdev_mac[20];//数据包所欲采用的接出口设备地址
-    unsigned int ICMP_type;//数据包若为ICMP报文，其子类型
+    int ICMP_type;//数据包若为ICMP报文，其子类型
     Control_Time controlled_time;
 }Rule;
 
