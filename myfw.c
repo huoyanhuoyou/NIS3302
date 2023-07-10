@@ -68,7 +68,7 @@ unsigned short str2Port(char* portstr);//将端口转为整型
 char* port2Str(unsigned short port, char buf[16]);//将整型端口构造为字符
 char* protocol2Str(unsigned short protocol, char buf[16]);//将整型协议进行转为字符串
 unsigned short str2Protocol(char* protstr);//将字符串类型的协议转为短整型的协议
-
+char* skb_mac2print_mac(const unsigned char* mac);//
 
 void get_skb_outgoing_interface_mac(struct sk_buff *skb, unsigned char *mac_addr) {
 	struct net_device *dev = skb_dst(skb)->dev;
@@ -227,7 +227,7 @@ void addRule(Rule* rule){
 		Rule* g_r = (Rule*)vmalloc(n_g_rules_current_count * sizeof(Rule));
 		
 		
-		
+
 		if(g_rules_current_count > 0){
 			memcpy(g_r, g_rules, g_rules_current_count * sizeof(Rule));
 			vfree(g_rules);
@@ -458,7 +458,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 	struct iphdr* iph = ip_hdr(skb);
 
 	struct ethhdr *eth_hdr = (struct ethhdr *)skb_mac_header(skb);
-	unsigned indev_mac[ETH_ALEN];
+	unsigned char indev_mac[ETH_ALEN];
 	if(skb_mac_header_was_set(skb))
 	{  
 		memcpy(indev_mac, eth_hdr->h_dest, ETH_ALEN);
@@ -468,7 +468,10 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 
     // 获取 skb 数据包的出口接口 MAC 地址
     get_skb_outgoing_interface_mac(skb, outdev_mac);
-
+	
+	//将 skb中的mac地址转换为输出格式
+	char* i_mac = skb_mac2print_mac(indev_mac);
+	char* o_mac = skb_mac2print_mac(outdev_mac);
 	//print_mac(mac_buffer,dmac);
 	//printk("%s, mac_buffer: %d\n", mac_buffer);
 	__u8 icmp_type;
@@ -512,9 +515,9 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 				(!r->dport || !dport || r->dport == dport)){
 				if (!r->ICMP_type || r->ICMP_type == icmp_type)
 						{
-							if(!stringsAreEqual(r->indev_mac,"any") || !stringsAreEqual(r->indev_mac , indev_mac))//对网络接口设备接入口地址进行判别
+							if(!stringsAreEqual(r->indev_mac,"any") || !stringsAreEqual(r->indev_mac , i_mac))//对网络接口设备接入口地址进行判别
 							{
-								if(!stringsAreEqual(r->outdev_mac,"any") || !stringsAreEqual(r->outdev_mac , outdev_mac))
+								if(!stringsAreEqual(r->outdev_mac,"any") || !stringsAreEqual(r->outdev_mac , o_mac))
 									{
 										//debug info
 										ip2Str(iph->saddr, c_sip);
@@ -524,7 +527,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 										protocol2Str(iph->protocol, c_protocol);
 
 										if(debug_level){
-											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, r->id);
+											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:%s according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, r->id, i_mac, o_mac, icmp_type);
 										}
 
 										return MATCH;
@@ -615,4 +618,12 @@ int stringsAreEqual(const char* str1, const char* str2) {
         i++;
     }
     return 0; // 字符串不相等
+}
+
+char* skb_mac2print_mac(const unsigned char* mac) {
+    char mac_str[ETH_ALEN * 3];  // 存储转换后的 MAC 地址字符串
+    sprintf(mac_str, "%02x:%02x:%02x:%02x:%02x:%02x",
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+	
+	return mac_str;
 }
