@@ -513,11 +513,11 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 			}
 			if ((!r->sport || !sport || r->sport == sport) &&
 				(!r->dport || !dport || r->dport == dport)){
-				if (!r->ICMP_type || r->ICMP_type == icmp_type)
+				if (r->ICMP_type ==-1 || r->ICMP_type == icmp_type)
 						{
-							if(!stringsAreEqual(r->indev_mac,"any") || !stringsAreEqual(r->indev_mac , i_mac))//对网络接口设备接入口地址进行判别
+							if(!strcmp(r->indev_mac,"any") || !strcmp(r->indev_mac , i_mac))//对网络接口设备接入口地址进行判别
 							{
-								if(!stringsAreEqual(r->outdev_mac,"any") || !stringsAreEqual(r->outdev_mac , o_mac))
+								if(!strcmp(r->outdev_mac,"any") || !strcmp(r->outdev_mac , o_mac))
 									{
 										//debug info
 										ip2Str(iph->saddr, c_sip);
@@ -527,7 +527,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 										protocol2Str(iph->protocol, c_protocol);
 
 										if(debug_level){
-											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:%s according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, r->id, i_mac, o_mac, icmp_type);
+											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:%s according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, icmp_type, r->id);
 										}
 
 										return MATCH;
@@ -613,11 +613,11 @@ int stringsAreEqual(const char* str1, const char* str2) {
     int i = 0;
     while (str1[i] == str2[i]) {
         if (str1[i] == '\0') {
-            return 1; // 字符串相等
+            return 0; // 字符串相等
         }
         i++;
     }
-    return 0; // 字符串不相等
+    return 1; // 字符串不相等
 }
 
 char* skb_mac2print_mac(const unsigned char* mac) {
