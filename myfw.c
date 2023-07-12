@@ -456,30 +456,41 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 	int sport = 0;
 	int dport = 0;
 	struct iphdr* iph = ip_hdr(skb);
-
+	//获取数据包中的eth_hdr结构体
 	struct ethhdr *eth_hdr = (struct ethhdr *)skb_mac_header(skb);
+	//得到接入接口mac地址
 	unsigned char indev_mac[ETH_ALEN];
 	if(skb_mac_header_was_set(skb))
-	{  
+	{  //将数据包skb的ethhdr结构体中的目的mac地址赋给接入接口mac地址；
 		memcpy(indev_mac, eth_hdr->h_dest, ETH_ALEN);
 	}
-	
+	//获取数据包中的接出mac地址；
 	unsigned char outdev_mac[ETH_ALEN];
 
     // 获取 skb 数据包的出口接口 MAC 地址
-    get_skb_outgoing_interface_mac(skb, outdev_mac);
-	
-	//将 skb中的mac地址转换为输出格式
-	char* i_mac = skb_mac2print_mac(indev_mac);
-	char* o_mac = skb_mac2print_mac(outdev_mac);
-	//print_mac(mac_buffer,dmac);
-	//printk("%s, mac_buffer: %d\n", mac_buffer);
+    struct net_device *dev = skb_dst(skb)->dev;
+    // 检查出口接口是否有效
+    if (dev) {
+        // 获取出口接口的 MAC 地址
+        memcpy(outdev_mac, dev->dev_addr, ETH_ALEN);
+	}
+	//将skb中的mac地址转换为输出格式
+	char i_mac[18];
+	char o_mac[18];
+	sprintf(i_mac, "%02x:%02x:%02x:%02x:%02x:%02x",
+        indev_mac[0], indev_mac[1], indev_mac[2], indev_mac[3], indev_mac[4], indev_mac[5]);
+	sprintf(o_mac, "%02x:%02x:%02x:%02x:%02x:%02x",
+        outdev_mac[0], outdev_mac[1], outdev_mac[2], outdev_mac[3], outdev_mac[4], outdev_mac[5]);
+
+
+
 	__u8 icmp_type;
 	
     // skb包含ICMP协议
 	struct icmphdr *icmp = icmp_hdr(skb);
 	icmp_type = icmp->type;
-	
+	int i_type = (int)icmp_type;
+	//将icmp报文子类型由u8型转为int型
 	struct tcphdr* tcph;
 	struct udphdr* udph;
 	
@@ -511,8 +522,8 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 				dport = udph->dest;
 				break;
 			}
-			if ((!r->sport || !sport || r->sport == sport) &&
-				(!r->dport || !dport || r->dport == dport)){
+			if ((!(int)r->sport || !sport || (int)r->sport == sport) &&
+				(!(int)r->dport || !dport || (int)r->dport == dport)){
 				if (r->ICMP_type ==-1 || r->ICMP_type == icmp_type)
 						{
 							if(!strcmp(r->indev_mac,"any") || !strcmp(r->indev_mac , i_mac))//对网络接口设备接入口地址进行判别
@@ -527,7 +538,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 										protocol2Str(iph->protocol, c_protocol);
 
 										if(debug_level){
-											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:%s according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, icmp_type, r->id);
+											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:%d according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, i_type, r->id);
 										}
 
 										return MATCH;
