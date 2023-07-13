@@ -94,8 +94,14 @@ unsigned int hookLocalIn(void* priv, struct sk_buff* skb, const struct nf_hook_s
  
 unsigned int hookLocalOut(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
-	//debugInfo("hookLocalOut");
-	return NF_ACCEPT;//接收该数据
+	unsigned rc = NF_ACCEPT;//默认继续传递，保持和原来输出的一致
+ 
+	//printk("Existing rules:%d",g_rules_current_count);
+	if (matchRule(skb))//查规则集，如果返回值<=0，那么不允许进行通信
+		rc = NF_DROP;//丢弃包，不再继续传递
+ 
+ 
+	return rc;//返回是是否允许通信，是否丢包
 }
  
 unsigned int hookPreRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
@@ -482,7 +488,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 	sprintf(o_mac, "%02x:%02x:%02x:%02x:%02x:%02x",
         outdev_mac[0], outdev_mac[1], outdev_mac[2], outdev_mac[3], outdev_mac[4], outdev_mac[5]);
 
-
+	char void_mac[18] = "00:00:00:00:00:00";//定义虚拟网络接口
 
 	__u8 icmp_type;
 	
@@ -526,7 +532,7 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 				(!(int)r->dport || !dport || (int)r->dport == dport)){
 				if (r->ICMP_type ==-1 || r->ICMP_type == icmp_type)
 						{
-							if(!strcmp(r->indev_mac,"any") || !strcmp(r->indev_mac , i_mac))//对网络接口设备接入口地址进行判别
+							if(!strcmp(r->indev_mac,"any") ||!strcmp(r->indev_mac , i_mac))//对网络接口设备接入口地址进行判别
 							{
 								if(!strcmp(r->outdev_mac,"any") || !strcmp(r->outdev_mac , o_mac))
 									{
@@ -538,7 +544,10 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 										protocol2Str(iph->protocol, c_protocol);
 
 										if(debug_level){
+											if(iph->protocol == 1)
 											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:%d according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, i_type, r->id);
+											else
+											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:Null according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, r->id);
 										}
 
 										return MATCH;
