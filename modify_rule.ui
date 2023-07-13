@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Modify_rule</class>
+ <widget class="QWidget" name="Modify_rule">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>698</width>
+    <height>478</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <widget class="QTextBrowser" name="rule_list">
+   <property name="geometry">
+    <rect>
+     <x>50</x>
+     <y>20</y>
+     <width>581</width>
+     <height>121</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label">
+   <property name="geometry">
+    <rect>
+     <x>120</x>
+     <y>160</y>
+     <width>101</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Rule number:</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="rule_number">
+   <property name="geometry">
+    <rect>
+     <x>230</x>
+     <y>160</y>
+     <width>113</width>
+     <height>25</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="item_option">
+   <property name="geometry">
+    <rect>
+     <x>230</x>
+     <y>200</y>
+     <width>171</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <item>
+    <property name="text">
+     <string>Source IP Address</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Source Port</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Destination IP Address</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Destination Port</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Protocol</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Date</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Week</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>Start Time</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>End Time</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>INDev mac</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>OUTDev mac</string>
+    </property>
+   </item>
+   <item>
+    <property name="text">
+     <string>ICMP Type</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QLabel" name="label_2">
+   <property name="geometry">
+    <rect>
+     <x>50</x>
+     <y>200</y>
+     <width>171</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>The item to be modified:</string>
+   </property>
+  </widget>
+  <widget class="QLineEdit" name="item_content">
+   <property name="geometry">
+    <rect>
+     <x>230</x>
+     <y>240</y>
+     <width>171</width>
+     <height>25</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_3">
+   <property name="geometry">
+    <rect>
+     <x>140</x>
+     <y>240</y>
+     <width>81</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Change to:</string>
+   </property>
+  </widget>
+  <widget class="QTextBrowser" name="result">
+   <property name="geometry">
+    <rect>
+     <x>70</x>
+     <y>340</y>
+     <width>561</width>
+     <height>121</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_4">
+   <property name="geometry">
+    <rect>
+     <x>60</x>
+     <y>310</y>
+     <width>111</width>
+     <height>25</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Result:</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="commit_button">
+   <property name="geometry">
+    <rect>
+     <x>470</x>
+     <y>260</y>
+     <width>111</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Commit</string>
+   </property>
+  </widget>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
