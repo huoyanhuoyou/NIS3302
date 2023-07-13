@@ -25,8 +25,13 @@ sudo ./cmdtool rule add [args]
 
 `-x sip -y sport -m dip -n dport`
 
+`-i indev_mac -o outdev_mac -t ICMP_type`
+
 基于时间段的控制
-`-d -w -s -e`：`-d`后接日期（1-31）；`-w`接星期，周日至周六分别以0-6表示；`-s -e`分别为开始时间，格式均为`hh:mm`。默认值：`00:00-24:00`。
+
+`-d -w -s -e`：`-d`后接日期（1-31）；`-w`接星期，周日至周六分别以0-6表示；`-s -e`分别为开始时间，格式均为`hh:mm`。
+默认值：`00:00-24:00`。
+
 
 ### 展示所有规则
 
@@ -44,12 +49,12 @@ sudo ./cmdtool rule del [rule_id]
 ```
 sudo ./cmdtool rule del 1 3 7
 ```
-上述命令删除id为1，3，7的命令。
+上述命令删除id为1，3，7的规则。
 
 ### 修改规则
 
 ```
-sudo ./cmdtool rule alt [rule_id] [args]
+sudo ./cmdtool rule alt [rule_id] [args](args同于add中的args)
 ```
 
 ### 临时屏蔽规则
@@ -65,6 +70,14 @@ sudo ./cmdtool rule set [rule_id] [0/1]
 sudo ./cmdtool debug set [0/1]
 ```
 
+展示调试等级
+
 ```
 sudo ./cmdtool debug show
+```
+
+调用图形界面
+
+```
+sudo ./Firewall_0629.sh
 ```
