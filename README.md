@@ -79,5 +79,5 @@ sudo ./cmdtool debug show
 调用图形界面
 
 ```
-sudo ./Firewall_0629.sh
+sudo ./Firewall.sh
 ```
