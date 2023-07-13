@@ -54,9 +54,7 @@ Rule* searchRuleById(int id);
 void get_skb_outgoing_interface_mac(struct sk_buff *skb, unsigned char *mac_addr);
 int isEqual(Control_Time *ct1, Control_Time *ct2);
 int matchDay(struct tm *tm1, Control_Time* ct);
-/*
-**requires inspection**
-*/
+
 
 //util function
 unsigned int str2Ip(char* ipstr);//字符串类型的ip转换为整型
@@ -327,7 +325,7 @@ void altRule(Rule_with_tag* tag_rule){
 	vfree(temp);
 }
 
-void changeRuleStat(int rule_id, int blocked){
+void changeRuleStat(int rule_id, int blocked){		//设置规则生效情况
 	Rule* target = searchRuleById(rule_id);
 	if(target != NULL){
 		target->block = blocked;
@@ -405,7 +403,7 @@ void cleanup_module()//将钩子注销
 MODULE_LICENSE("GPL");//模块的许可证声明，防止收到内核被污染的警告
 
 
-int checkExistance(Rule* rule){
+int checkExistance(Rule* rule){		//检查规则是否存在
 	Rule* ptr = NULL;
 	for(i = 0; i < g_rules_current_count; ++i){
 		ptr = (Rule*)g_rules + i;
@@ -422,7 +420,7 @@ int checkExistance(Rule* rule){
 	return 0;
 }
 
-Rule* searchRuleById(int id){
+Rule* searchRuleById(int id){			//返回特定ID的规则
 	Rule* ptr = g_rules;
 	Rule* target = NULL;
 	for(i=0; i<g_rules_current_count;++i){
@@ -557,13 +555,11 @@ int matchDay(struct tm *tm1, Control_Time* ct){
 	if(s_time < now && now < e_time){
 		timematch = 1;
 	}
-	// printk("%d, %d", ct->wday, tm1->tm_wday);
-	// printk("%d,%d,%d\n",wdaymatch,timematch,datematch);
 
 	return (wdaymatch && timematch && datematch);
 }
 
-int isEqual(Control_Time *ct1, Control_Time *ct2){
+int isEqual(Control_Time *ct1, Control_Time *ct2){		//检查时间匹配
 	if(ct1->date != ct2->date) return 0;
 	if(ct1->wday != ct2->wday) return 0;
 	if(ct1->s_hour != ct2->s_hour) return 0;

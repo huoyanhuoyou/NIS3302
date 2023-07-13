@@ -104,7 +104,7 @@ int main(int argc, char* argv[]){
             altRule(sockfd, argc, argv);
             break;
         }
-        if(!strncmp(argv[2], "set", 3)){
+        if(!strncmp(argv[2], "set", 3)){                    //改变debug_level
             setRuleStat(sockfd, atoi(argv[3]), atoi(argv[4]));
             break;
         }
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]){
             showDebugState(sockfd);
             break;
         }
-        if(!strncmp(argv[2], "set", 3)){
+        if(!strncmp(argv[2], "set", 3)){                    //改变debug_level
             if(argc < 4) paramsError("Too few arguments!");
             setDebugState(sockfd, atoi(argv[3]));
             break;
@@ -151,14 +151,13 @@ void showRules(int sockfd){
     int id, blocked;
     for(int i = 0; i<tbl->count; ++i){
         id = r->id;
-        blocked = r->block;
+        blocked = r->block;         
         ip2Str(r->sip, sip);
         ip2Str(r->dip, dip);
         port2Str(r->sport, sport);
         port2Str(r->dport, dport);
         protocol2Str(r->protocol, protocol);
-        //indev_mac = r->indev_mac;
-        //outdev_mac = r->outdev_mac;
+        //转换输出格式
         
         if(r->ICMP_type == -1) 
         {
@@ -280,8 +279,7 @@ void addRule(int sockfd, int argc, char* argv[]){
     new_rule->protocol = str2Protocol(protocol);
     str2mac(new_rule->indev_mac, indev_mac);
     str2mac(new_rule->outdev_mac, outdev_mac);
-    //new_rule->indev_mac = *indev_mac;
-    //new_rule->outdev_mac = *outdev_mac;
+    
     new_rule->ICMP_type = str2ICMP_type(ICMP_type);
     void* val=(void*)new_rule;
 
@@ -419,7 +417,7 @@ void altRule(int sockfd, int argc, char* argv[]){
 
     setsockopt(sockfd, IPPROTO_IP, CMD_ALT_RULE, tag_rule, sizeof(Rule_with_tag));
 
-    int res;
+    int res;                    //返回结果
     int res_len = sizeof(int);
     getsockopt(sockfd, IPPROTO_IP, CMD_ALT_RULE, &res, &res_len);
 
@@ -435,7 +433,7 @@ void altRule(int sockfd, int argc, char* argv[]){
     
 }
 
-void setRuleStat(int sockfd, int rule_id, int active){
+void setRuleStat(int sockfd, int rule_id, int active){  //屏蔽规则
     RuleStat* rule_stat = malloc(sizeof(RuleStat));
     rule_stat->rule_id = rule_id;
     if(!active){
@@ -456,7 +454,7 @@ void setRuleStat(int sockfd, int rule_id, int active){
     }
 }
 
-void showDebugState(int sockfd){
+void showDebugState(int sockfd){            //展示debug_level
     int val_len = sizeof(int);
     int *val = malloc(val_len);
     getsockopt(sockfd, IPPROTO_IP, CMD_GET_DEBUG_STATE, val, &val_len);
@@ -541,7 +539,7 @@ unsigned int str2ICMP_type(char* ICMP_type)
 	return type;
 }
 
-void str2mac(char* r_mac, const char* getmac)
+void str2mac(char* r_mac, const char* getmac)       //转换格式
 {
     char* any = "any";
     if(!strcmp(getmac,"any"))
@@ -553,40 +551,18 @@ void str2mac(char* r_mac, const char* getmac)
         strcpy(r_mac, getmac);
     }
 }
-/*
-char* mac2str(char *dev_mac)
-{
-    char devmac[17];
-    char* any = "any";
-    if(!strcmp(dev_mac,"any")) return any;
-    else
-    {
-        return strcpy(devmac,dev_mac);
-    }
-}
 
-char* ICMP_type2str(int i_type)
-{
-    char *type = new char[20];
-    if(i_type == 0)
-    {
-        type = "any or none";
-         
-    }
-    else type = itoa(i_type, type, 10);
 
-    return type;
-}
-
-*/
 void showUsage(){
     printf("Supported commands:\n");
-    printf("sudo ./cmdtool rule [add/del/alt/show] [args]:\n");
+    printf("sudo ./cmdtool rule [add/del/alt/show/set] [args]:\n");     
     printf("add: add a new rule. Supported args: -m dip -n dport -x sip -y sport -i indev_mac -o outdev_mac -t ICMP_type, with default value: any.\n");
     printf("del: delete rules by given id. Supported args: ids.\n");
-    printf("alt: change a existing rule. Supported args is the same as add.\n");
+    printf("alt: change a existing rule. Supported args is the same as add.\n");        
     printf("show: show all rules. No args.\n");
+    printf("set: block rule.\n");
     printf("sudo ./cmdtool debug [show/set]:\n");
     printf("show: show debug info. No args.\n");
-    printf("set: set debug level. Debug level can be 0 or 1.\n");
+    printf("set: set debug_level. Debug level can be 0 or 1.\n");
+
 }

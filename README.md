@@ -49,12 +49,12 @@ sudo ./cmdtool rule del [rule_id]
 ```
 sudo ./cmdtool rule del 1 3 7
 ```
-上述命令删除id为1，3，7的命令。
+上述命令删除id为1，3，7的规则。
 
 ### 修改规则
 
 ```
-sudo ./cmdtool rule alt [rule_id] [args]
+sudo ./cmdtool rule alt [rule_id] [args](args同于add中的args)
 ```
 
 ### 临时屏蔽规则
@@ -70,7 +70,14 @@ sudo ./cmdtool rule set [rule_id] [0/1]
 sudo ./cmdtool debug set [0/1]
 ```
 
+展示调试等级
+
 ```
 sudo ./cmdtool debug show
 ```
 
+调用图形界面
+
+```
+sudo ./Firewall_0629.sh
+```
