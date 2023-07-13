@@ -11,8 +11,6 @@
 #include<linux/time.h>
 #include"header.h"
 
-//unimportant function declaration
-void debugInfo(char* msg);
 
 //定义detfilter的5个钩子点：
 static struct nf_hook_ops nfhoLocalIn;
@@ -56,7 +54,6 @@ Rule* searchRuleById(int id);
 void get_skb_outgoing_interface_mac(struct sk_buff *skb, unsigned char *mac_addr);
 int isEqual(Control_Time *ct1, Control_Time *ct2);
 int matchDay(struct tm *tm1, Control_Time* ct);
-int stringsAreEqual(const char* str1, const char* str2) ;
 /*
 **requires inspection**
 */
@@ -106,19 +103,16 @@ unsigned int hookLocalOut(void* priv, struct sk_buff* skb, const struct nf_hook_
  
 unsigned int hookPreRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
-	//debugInfo("hookPreRouting");
 	return NF_ACCEPT;//接收该数据
 }
  
 unsigned int hookPostRouting(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
-	//debugInfo("hookPostRouting");
 	return NF_ACCEPT;//接收该数据
 }
  
 unsigned int hookForward(void* priv, struct sk_buff* skb, const struct nf_hook_state* state)
 {
-	//debugInfo("hookForwarding");
 	return NF_ACCEPT;//接收该数据
 }
  
@@ -135,7 +129,7 @@ int hookSockoptSet(struct sock* sock,
 			ret = copy_from_user(&debug_level, user, sizeof(debug_level));
 			
 			//record
-			printk("[Myfw]Changed debug level to %d.\n",debug_level);
+			printk("[MYFW INFO]Changed debug level to %d.\n",debug_level);
 			
 		}
 		if(cmd == CMD_ADD_RULE)
@@ -156,7 +150,6 @@ int hookSockoptSet(struct sock* sock,
 		{
 			Rule_with_tag* tag_rule = vmalloc(sizeof(Rule_with_tag));
 			ret = copy_from_user(tag_rule, user, sizeof(Rule_with_tag));
-			printk("Debug: point 1.\n");
 			altRule(tag_rule);
 			
 		}
@@ -217,7 +210,6 @@ int hookSockoptGet(struct sock* sock,
 
     if (ret != 0){
 		ret = -EINVAL;
-		//debugInfo("copy_to_user error");
 	}
 
     return ret;
@@ -245,7 +237,7 @@ void addRule(Rule* rule){
 		g_rules_total_count = n_g_rules_total_count;
 
 		if(debug_level){
-			printk("A new rule was added, id: %d.\n", rule->id);
+			printk("[MYFW INFO]A new rule was added, id: %d.\n", rule->id);
 		}
 
 
@@ -278,7 +270,7 @@ void delRule(int rule_id){
 		g_rules_current_count--;
 		
 		if(debug_level){
-			printk("Rule %d was deleted!\n", target_id);
+			printk("[MYFW INFO]Rule %d was deleted!\n", target_id);
 		}
 
 		del_succeed = 1;
@@ -325,7 +317,7 @@ void altRule(Rule_with_tag* tag_rule){
 		memcpy(target, temp, sizeof(Rule));
 
 		if(debug_level){
-			printk("Rule %d was changed!\n", target->id);
+			printk("[MYFW INFO]Rule %d was changed!\n", target->id);
 		}
 
 
@@ -392,7 +384,7 @@ int init_module()//内核模块初始化,初始化五个钩子（进行钩子的
 	nfhoSockopt.get = hookSockoptGet;
 	nf_register_sockopt(&nfhoSockopt);//注册扩展套接字选项
  
-	printk("myfirewall started\n");//将信息输出到日志中
+	printk("[MYFW INFO]Myfirewall started\n");//将信息输出到日志中
  
 	return 0;
 }
@@ -407,21 +399,11 @@ void cleanup_module()//将钩子注销
  
 	nf_unregister_sockopt(&nfhoSockopt);
  
-	printk("myfirewall stopped\n");//输出相应的信息
+	printk("[MYFW INFO]Myfirewall stopped\n");//输出相应的信息
 }
  
 MODULE_LICENSE("GPL");//模块的许可证声明，防止收到内核被污染的警告
 
-void debugInfo(char* msg)//记录操作次数，将每次的操作信息输出到日志
-{
-	if (debug_level){//如果等级符合要求，才进行+1和输出到日志
-		//nfcount++;
-		//printk("%s, nfcount: %d\n", msg, nfcount);
-
-		printk("[Myfw]%s.\n", msg);
-		
-	}
-}
 
 int checkExistance(Rule* rule){
 	Rule* ptr = NULL;
@@ -545,9 +527,9 @@ int matchRule(void* skb)//进行规则比较的函数，判断是否能进行通
 
 										if(debug_level){
 											if(iph->protocol == 1)
-											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:%d according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, i_type, r->id);
+											printk("[MYFW INFO]Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:%d according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, i_type, r->id);
 											else
-											printk("[Myfw] Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:Null according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, r->id);
+											printk("[MYFW INFO]Reject packet:(%s)%s:%s -> %s:%s\t indev_mac:%s outdev_mac:%s ICMP_type:Null according to Rule %d",c_protocol, c_sip, c_sport, c_dip, c_dport, i_mac, o_mac, r->id);
 										}
 
 										return MATCH;
@@ -629,16 +611,6 @@ char* protocol2Str(unsigned short protocol, char buf[16])//将整型协议进行
 	return buf;
 }
 
-int stringsAreEqual(const char* str1, const char* str2) {
-    int i = 0;
-    while (str1[i] == str2[i]) {
-        if (str1[i] == '\0') {
-            return 0; // 字符串相等
-        }
-        i++;
-    }
-    return 1; // 字符串不相等
-}
 
 char* skb_mac2print_mac(const unsigned char* mac) {
     char mac_str[ETH_ALEN * 3];  // 存储转换后的 MAC 地址字符串
